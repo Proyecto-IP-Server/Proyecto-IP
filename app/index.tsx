@@ -1,0 +1,17 @@
+import {  View } from "react-native";
+import ConditionalsFormView from "./Tabs/OptionSideBoart_view";
+import LogFormView from "./Tabs/datos_generales_view_form";
+
+export default function Index() {
+  return (
+    <View
+      style={{
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <ConditionalsFormView />
+    </View>
+  );
+}
