@@ -6,7 +6,7 @@ import CalendarEvent from './CalendarEvent';
 
 
 export function WeeklySchedule() {
-    const daysOfWeek = ['','Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     const timeSlots = () => {
         const slots = [];
         for (let hour = 7; hour <= 21; hour++) {
@@ -14,80 +14,90 @@ export function WeeklySchedule() {
         }
         return slots;
     }
-    // Es la representación de las actividades en la semana
-    const sections = () =>{
-        const sections = [];
-        const numSections = daysOfWeek.length * timeSlots().length; 
-        
-        for (let i = 1; i < daysOfWeek.length; i++) {
-            for (let j = 0; j < timeSlots().length; j++) {
-                sections.push({id: daysOfWeek[i] + timeSlots()[j], day: daysOfWeek[i], hour: timeSlots()[j], event: 'Vacio'});
-                // Evento = {clase, ocupado, null}
-                // event se ira modificando segun las clases que se vayan agregando
+    // Classes. Los dastos ya tienen que estar procesados
+    // osea se tiene que pasar una obsion de los horarios
+    const course = [{
+            "materia"   :"materia",
+            "mestro"    :"mestro",
+            "edificio"  :"edificio",
+            "NRC"       :"NRC",
+            "horario"   :"horario" 
+        }]// materia, mestro, edificio, NRC, horario 
+
+    let content = () => {
+        const times = timeSlots();
+        let rows = [];
+
+        for (let i = 0; i < times.length; i++) {
+            for (let j = 0; j < daysOfWeek.length; j++) {
+                rows.push({
+                    event: { tipe: 'vacio' },
+                    Caracteristicas: {
+                        day: daysOfWeek[j],
+                        hor: times[i]
+                    }
+                });
             }
         }
-        sections.sort((a, b) => {
-            const hourA = parseInt(a.hour.split(':')[0]);
-            const hourB = parseInt(b.hour.split(':')[0]);
-            return hourA - hourB;
-        });
-        console.log(sections);
-        return sections;
-    }
 
+        return rows;
+    };
 
     // La tabla del horario se va harmar por filas
     return (
         <View style={{ width: '100%', height: '100%',}}>
-            <Text>Horario Semanal</Text>
-            <View style={{flexDirection: "column", width: '100%', height: '100%', borderBlockColor: 'black', borderWidth: 1}}>
-
-                {/* Headers */}
-                <View style={{flexDirection: "row", width: '100%', height: '2.5%',borderBlockColor: 'black', borderWidth: 1}}>
-                    {daysOfWeek.map((day) => (
-                        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', borderBlockColor: 'black', borderWidth: 1}}>
-                            <Text>{day}</Text>
-                        </View>
-                    ))}
+            <View style={{height:'100%', width:'100%',padding:6,}}>
+                {/* Es la vista que contiene los haaders de la tabla */}
+                <View style={{
+                    alignItems: 'center',
+                    borderBlockColor: 'black',
+                    borderWidth: 1,
+                    height:'5%',
+                    width:'99.12%',
+                    flexDirection: 'row',
+                }}>
+                    <View style={[styles.containerHeder,styles.containerCell]}>
+                        <Text>Horario</Text>
+                    </View>
+                    {
+                        daysOfWeek.map( day =>{
+                            return(
+                                <View style={styles.containerCell}>
+                                    <Text>{day}</Text>
+                                </View>
+                            )
+                        })
+                    }
                 </View>
-                {/* Cuerpo de la tabla */}
-                <View style={{width: '100%', height: '95%'}}>
+                {/* Este flatlist contiene el contido de la tabla */}
+                <ScrollView style={{height:'90%', width:'100%'}}>
+                    {
+                        timeSlots().map( time =>{
+                            // Ingresar los headers
+                            let rows = content().filter(row => row.Caracteristicas?.hor === time)
+                            return(
+                                <View style={{flexDirection: 'row', borderBlockColor: 'black', borderWidth: 1, alignItems: 'center',}}>
+                                    <View style={styles.containerCell}>
+                                        <Text>{time}</Text>
+                                    </View>
+                                    {
+                                    rows.map(row =>{ return(
+                                        <View style={styles.containerCell}>
+                                            <CalendarEvent 
+                                                evento={row.event?.tipe} 
+                                            />
+                                        </View>
+                                    )})
+                                    }
+                                </View>
+                            )
+                        })
+                    }
+                </ScrollView>
+            </View>
 
-                    <FlatList
-                        data={timeSlots()}
-                        renderItem={({ item: hour }) => (
-                            <View style={{flexDirection: 'row', borderBlockColor: 'black', borderWidth: 1}}>
-                                    {daysOfWeek.map((day) => {
-                                        // Buscar la sección correspondiente al día y la hora Para no repetir datos
-                                        const section = sections().find(s => s.day === day && s.hour === hour);
-                                        return (
-                                            section?.event === "Clase"
-                                            ?
-                                                <View style={{}} >
-                                                        <CalendarEvent evento={section?.event} maestro={"juan"} lugar={"lugar"} codigo={section?.id}/>
-                                                </View>
-                                            :
-                                            <View style={section?.event==="Clase"? styles.sectionClass:styles.sectionFree} >
-                                                {section?.event === 'Vacio' ?    
-                                                    <Text></Text>
-                                                :
-                                                    <CalendarEvent evento={section?.event} maestro={"juan"} lugar={"lugar"} codigo={section?.id}/>
-                                                }
-                                            </View>
-                                            
-                                            
-                                                
-                                        );
-                                    })}
-                            </View>
-                        )}
-                        style={{height: '100%', width: '100%'}}
-                    />
-                    
-                </View>
 
-                   
-            </View> 
+
         </View>
     );
 }
@@ -98,28 +108,25 @@ const styles = StyleSheet.create({
         margin: 2,
         padding: 16,
     },
-    sectionBusy:{
+    containerHeder:{
+        height:'100%',
+        width:'50%',
+    },
+    containerCell:{
         flex: 1,
+        height:'100%',
+        width:'100%',
         justifyContent: 'center',
         alignItems: 'center',
         borderBlockColor: 'black',
         borderWidth: 1,
+        padding:2
+    },
+    sectionBusy:{
         backgroundColor: '#ffcccc',
     },
     sectionClass:{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderBlockColor: 'black',
-        borderWidth: 1,
+
         backgroundColor: '#ccffcc',
     },
-    sectionFree:{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderBlockColor: 'black',
-        borderWidth: 1,
-    },
-
 });
