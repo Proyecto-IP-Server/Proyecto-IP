@@ -1,4 +1,3 @@
-import { Text } from 'react-native';
 import { Button, TextInput, View } from 'react-native-web';
 import TextTitle from "../../components/TextTitle"
 

@@ -1,8 +1,8 @@
 import { Pressable, Text } from 'react-native';
 import { Button, TextInput, View } from 'react-native-web';
 import TextTitle from "../../components/TextTitle"
-import DropdownComponent from '@/components/drpdown';
-import { Dropdown } from 'react-native-element-dropdown';
+// import DropdownComponent from '@/components/drpdown';
+// import { Dropdown } from 'react-native-element-dropdown';
 import { Image } from 'expo-image';
 
 // Vista que tiene los opciones para agragar condiciones

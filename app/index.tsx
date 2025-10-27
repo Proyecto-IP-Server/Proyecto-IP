@@ -1,6 +1,8 @@
 import {  View } from "react-native";
-import ConditionalsFormView from "./Tabs/OptionSideBoart_view";
-import LogFormView from "./Tabs/datos_generales_view_form";
+// import ConditionalsFormView from "./Tabs/OptionSideBoart_view";
+// import LogFormView from "./Tabs/datos_generales_view_form";
+import { WeeklySchedule } from "@/components/WeeklySchedule";
+
 
 export default function Index() {
   return (
@@ -11,7 +13,7 @@ export default function Index() {
         alignItems: "center",
       }}
     >
-      <ConditionalsFormView />
+      <WeeklySchedule />
     </View>
   );
 }
