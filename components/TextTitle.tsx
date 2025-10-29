@@ -3,11 +3,11 @@ export default function TextTitle({ children }: { children: string }) {
   return (
     <Text
       style={{
-        fontSize: 24,
+        fontSize: 35,
         fontWeight: "bold",
-
-      }}
-    >
+        paddingTop:10,
+        paddingBottom:20
+      }}>
       {children}
     </Text>
   );

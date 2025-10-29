@@ -1,7 +1,6 @@
 import {  View } from "react-native";
-// import ConditionalsFormView from "./Tabs/OptionSideBoart_view";
-// import LogFormView from "./Tabs/datos_generales_view_form";
-import { WeeklySchedule } from "@/components/WeeklySchedule";
+import Login from '../app/Tabs/Login'
+
 
 
 export default function Index() {
@@ -13,7 +12,7 @@ export default function Index() {
         alignItems: "center",
       }}
     >
-      <WeeklySchedule />
+      <Login/>
     </View>
   );
 }

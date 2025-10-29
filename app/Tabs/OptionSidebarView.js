@@ -1,19 +1,33 @@
 import { Pressable, Text } from 'react-native';
 import { Button, TextInput, View } from 'react-native-web';
 import TextTitle from "../../components/TextTitle"
-// import DropdownComponent from '@/components/drpdown';
-// import { Dropdown } from 'react-native-element-dropdown';
 import { Image } from 'expo-image';
+import { useState } from 'react';
+
 
 // Vista que tiene los opciones para agragar condiciones
-export default function ConditionalsFormView() {
-  // Lista de Materias
-  // Lista de Maestros [Scorr]
-  return (
-    <View>
-        {/* Muesta el encabesado */}
-        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 10}}>
+export default function OptionSidebarView() {
+  const [activOptionSidebar, setActivOptionSidebar] = useState(true)
+  const [activeFilter, setActiveFilter] = useState([false,false,false])
+  const filters= [
+    {filter:'Materias', value:"1"},
+    {filter:'Maestro', value:"2"},
+    {filter:'Horario', value:"3"},
 
+  ]
+
+  return (
+    <View style={{height:'100%', width:'100%', padding:10,
+        borderBlockColor: 'black',
+        borderWidth: 1,
+        }}>
+          <View>
+            <Pressable>
+              <Image source={{uri:"https://images.icon-icons.com/1919/PNG/512/optionscircularbutton_122043.png"}} style={{width: 24, height: 24}}/>
+            </Pressable>
+          </View>
+        {/* Muesta el encabesado */}
+        <View style={{width:'100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 5}}>
           <TextTitle>Condiciones</TextTitle>
           <Pressable>
             <Image source={{uri: 'https://cdn-icons-png.flaticon.com/512/58/58282.png'}} style={{width: 24, height: 24}} />
@@ -21,19 +35,6 @@ export default function ConditionalsFormView() {
         </View>
 
         {/* Menu desplegable de nueva condicion*/}
-        <View>
-          <Pressable>
-            <Text>Materias</Text>
-          </Pressable>
-
-          <Pressable>
-            <Text>Maestro</Text>
-          </Pressable>
-
-          <Pressable>
-            <Text>Horario</Text>
-          </Pressable>
-        </View>
 
         {/* Input que solo aparece si se selecciona una condicion */}
         <View>
