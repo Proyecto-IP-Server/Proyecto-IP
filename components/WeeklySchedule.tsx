@@ -8,7 +8,6 @@ import { useRouter } from 'expo-router';
 
 
 export function WeeklySchedule({carrera, centro, cliclo}:{carrera:string, centro:string, cliclo:string}) {
-    const router = useRouter()
     const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     const timeSlots = () => {
         const slots = [];
@@ -58,11 +57,7 @@ export function WeeklySchedule({carrera, centro, cliclo}:{carrera:string, centro
     // La tabla del horario se va harmar por filas
     return (
         <View style={{ width: '100%', height: '100%',}}>
-            <Button
-                title="regresar"
-                onPress={() => router.push('/')}
-            />
-            <View style={{height:'100%', width:'100%',padding:6,}}>
+            <View style={{height:'100%', width:'100%',padding:1,}}>
                 {/* Es la vista que contiene los haaders de la tabla */}
                 <View style={{
                     alignItems: 'center',

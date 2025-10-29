@@ -7,7 +7,6 @@ import { useState } from 'react';
 
 // Vista que tiene los opciones para agragar condiciones
 export default function OptionSidebarView() {
-  const [activOptionSidebar, setActivOptionSidebar] = useState(true)
   const [activeFilter, setActiveFilter] = useState([false,false,false])
   const filters= [
     {filter:'Materias', value:"1"},
@@ -21,11 +20,7 @@ export default function OptionSidebarView() {
         borderBlockColor: 'black',
         borderWidth: 1,
         }}>
-          <View>
-            <Pressable>
-              <Image source={{uri:"https://images.icon-icons.com/1919/PNG/512/optionscircularbutton_122043.png"}} style={{width: 24, height: 24}}/>
-            </Pressable>
-          </View>
+
         {/* Muesta el encabesado */}
         <View style={{width:'100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 5}}>
           <TextTitle>Condiciones</TextTitle>
