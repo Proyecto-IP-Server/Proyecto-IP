@@ -1,10 +1,7 @@
 import React from 'react';
-import { Background, Text } from "@react-navigation/elements";
-import { Button, FlatList, StyleSheet, View } from "react-native";
-import { ScrollView } from "react-native";
+import { Text } from "@react-navigation/elements";
+import { StyleSheet, View, ScrollView } from "react-native";
 import CalendarEvent from './CalendarEvent';
-import TextTitle from './TextTitle';
-import { useRouter } from 'expo-router';
 
 
 export function WeeklySchedule({carrera, centro, cliclo}:{carrera:string, centro:string, cliclo:string}) {
@@ -16,7 +13,7 @@ export function WeeklySchedule({carrera, centro, cliclo}:{carrera:string, centro
         }
         return slots;
     }
-    const getCellStyle = (status) => {
+    const getCellStyle = (status: string) => {
         switch (status) {
             case 'vacio':
             return { backgroundColor: '#ffcccc', };
@@ -24,16 +21,7 @@ export function WeeklySchedule({carrera, centro, cliclo}:{carrera:string, centro
             return { backgroundColor: '#ccffcc' };
             default:
             return { backgroundColor: '#fff' };
-    }};
-    // Classes. Los dastos ya tienen que estar procesados
-    // osea se tiene que pasar una obsion de los horarios
-    const course = [{
-            "materia"   :"materia",
-            "mestro"    :"mestro",
-            "edificio"  :"edificio",
-            "NRC"       :"NRC",
-            "horario"   :"horario" 
-        }]// materia, mestro, edificio, NRC, horario 
+    }}; 
 
     let content = () => {
         const times = timeSlots();
@@ -71,9 +59,9 @@ export function WeeklySchedule({carrera, centro, cliclo}:{carrera:string, centro
                         <Text>Horario</Text>
                     </View>
                     {
-                        daysOfWeek.map( day =>{
+                        daysOfWeek.map((day, index) =>{
                             return(
-                                <View style={styles.containerCell}>
+                                <View key={`day-header-${index}`} style={styles.containerCell}>
                                     <Text>{day}</Text>
                                 </View>
                             )
@@ -83,17 +71,17 @@ export function WeeklySchedule({carrera, centro, cliclo}:{carrera:string, centro
                 {/* Este flatlist contiene el contido de la tabla */}
                 <ScrollView style={{height:'90%', width:'100%'}}>
                     {
-                        timeSlots().map( time =>{
+                        timeSlots().map((time, timeIndex) =>{
                             // Ingresar los headers
                             let rows = content().filter(row => row.Caracteristicas?.hor === time)
                             return(
-                                <View style={{flexDirection: 'row', borderBlockColor: 'black', borderWidth: 1, alignItems: 'center',}}>
+                                <View key={`time-row-${timeIndex}`} style={{flexDirection: 'row', borderBlockColor: 'black', borderWidth: 1, alignItems: 'center',}}>
                                     <View style={[styles.containerCell,]}>
                                         <Text>{time}</Text>
                                     </View>
                                     {
-                                    rows.map(row =>{ return(
-                                        <View style={[styles.containerCell,getCellStyle(row.event.tipe)]}>
+                                    rows.map((row, rowIndex) =>{ return(
+                                        <View key={`cell-${timeIndex}-${rowIndex}`} style={[styles.containerCell,getCellStyle(row.event.tipe)]}>
                                             {/* {row.event.tipe ==='vacio'
                                             } */}
                                             <CalendarEvent

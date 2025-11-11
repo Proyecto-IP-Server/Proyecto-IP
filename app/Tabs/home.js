@@ -1,13 +1,23 @@
-import {  View, StyleSheet, Pressable } from "react-native";
+import {  View, StyleSheet, Pressable, Text } from "react-native";
 import { WeeklySchedule } from "@/components/WeeklySchedule";
 import OptionSidebarView from "./OptionSidebarView";
 import { Image } from "react-native-web";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUserData } from "../../hooks/useUserData";
 
 export default function Home() {
   const router = useRouter()
   const [activOptionSidebar, setActivOptionSidebar] = useState(true)
+  const { userData, loading } = useUserData();
+
+  // Verificar que el usuario haya completado el login
+  useEffect(() => {
+    if (!loading && (!userData.centroUniversitario || !userData.calendario || !userData.carrera)) {
+      // Si no hay datos guardados, redirigir al login
+      router.push('/');
+    }
+  }, [loading, userData, router]);
 
 
   return (
@@ -48,7 +58,17 @@ export default function Home() {
           
           {/* Condicionar para que cambie entre WeeklySchedule o OptionsWeeklySchedule */}
           <View style={{width:activOptionSidebar?'80%' : '100%', height:'100%'}}>
-              <WeeklySchedule></WeeklySchedule>
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <Text>Cargando...</Text>
+                </View>
+              ) : (
+                <WeeklySchedule 
+                  carrera={userData.carrera}
+                  centro={userData.centroUniversitario}
+                  ciclo={userData.calendario}
+                />
+              )}
           </View>
       </View>
     </View>
@@ -56,6 +76,13 @@ export default function Home() {
   );
 }
 
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
+});
 
             // <Button
             //     title="regresar"

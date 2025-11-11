@@ -1,36 +1,11 @@
-import { Pressable, StyleSheet } from "react-native";
-import { View } from "react-native";
-import TextTitle from "./TextTitle";
+import { Pressable, StyleSheet, View } from "react-native";
 import { Label, Text } from "@react-navigation/elements";
 
 
-export default function CalendarEvent({evento, maestro, lugar, codigo, tipe}: {evento: string, maestro: string, lugar: string, codigo: string, tipe:string}) {
+export default function CalendarEvent({evento, maestro, lugar, codigo, tipe}: {evento?: string, maestro?: string, lugar?: string, codigo?: string, tipe:string}) {
     return(
         <View>
-            {tipe ==='vacio' || tipe === '' ?
-                // <View style={{marginBlockEnd:70}}>
-                //     <Text></Text>
-                // </View>
-                // :
-                // <Pressable>
-                //     <View style={styles.container}>
-                //         <View style={styles.fieldContainer}>
-                //             <TextTitle>{evento}</TextTitle>
-                //         </View>
-                //         <View style={styles.fieldContainer}>
-                //             <Label>Maestro: </Label>
-                //             <Text>{maestro}</Text>
-                //         </View>
-                //         <View style={styles.fieldContainer}>
-                //             <Label>Lugar: </Label>
-                //             <Text>{lugar}   </Text>
-                //         </View>
-                //         <View style={styles.fieldContainer}>
-                //             <Label>Código: </Label>
-                //             <Text>{codigo}</Text>
-                //         </View>
-                //     </View>
-                // </Pressable>
+            {tipe ==='vacio' || tipe === '' ? (
                 <Pressable>
                     <View style={styles.container}>
                         <View style={styles.fieldContainer}>
@@ -50,12 +25,11 @@ export default function CalendarEvent({evento, maestro, lugar, codigo, tipe}: {e
                         </View>
                     </View>
                 </Pressable>
-                :
+            ) : (
                 <View style={{marginBlockEnd:70}}>
                     <Text></Text>
                 </View>
-            }
-            
+            )}
         </View>
     );
 }

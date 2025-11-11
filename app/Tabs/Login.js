@@ -1,102 +1,229 @@
-import { Button, TextInput, View } from 'react-native-web';
+import { Pressable, View, Text, StyleSheet, Alert, ActivityIndicator, Platform, Dimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TextTitle from "../../components/TextTitle"
-import { StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Dropdown } from 'react-native-element-dropdown';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../config/api';
+
+console.log('API_BASE_URL:', API_BASE_URL);
+
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
 
 export default function Login() {
   const router = useRouter()
-  // ingresa los datos de todos los centros unircitarios
-  const data = [
-    {
-      'centroUnivercitario': [
-        {centro:"CUCEI", value:'1'},
-        {centro:"CUSH", value:'2'},
-        {centro:"CUCEA", value:'3'},
-      ],
-      'calendario':[
-        {calendario:'2025B', value:'1'},
-        {calendario:'2025A', value:'2'},
-        {calendario:'2024B', value:'3'},
-        {calendario:'2024A', value:'4'},
-      ],
-      'codigoCarrera':[
-        {carrera:"INCO", value:'1'},
-        {carrera:"ICOM", value:'2'},
-        {carrera:"QFA", value:'3'},
-      ]
-    } 
-  ]
-  const [centroUnivercitarioValue, setCentroUnivercitarioValue] = useState(0);
-  const [calendarioValue, setCalendarioValue] = useState(0);
-  const [codigoCarreraValue, setCodigoCarreraValue] = useState(0);
+  
+  // Estados para los valores seleccionados
+  const [centroUnivercitarioValue, setCentroUnivercitarioValue] = useState(null);
+  const [calendarioValue, setCalendarioValue] = useState(null);
+  const [codigoCarreraValue, setCodigoCarreraValue] = useState(null);
+  
+  // Estados para los datos de la API
+  const [centros, setCentros] = useState([]);
+  const [ciclos, setCiclos] = useState([]);
+  const [carreras, setCarreras] = useState([]);
+  
+  // Estados de carga
+  const [loadingCentros, setLoadingCentros] = useState(true);
+  const [loadingCiclos, setLoadingCiclos] = useState(true);
+  const [loadingCarreras, setLoadingCarreras] = useState(false);
 
+  // Cargar centros, ciclos y datos guardados al montar el componente
+  useEffect(() => {
+    fetchCentros();
+    fetchCiclos();
+    loadSavedData();
+  }, []);
+
+  // Cargar datos guardados del AsyncStorage
+  const loadSavedData = async () => {
+    try {
+      const savedCentro = await AsyncStorage.getItem('centroUniversitario');
+      const savedCalendario = await AsyncStorage.getItem('calendario');
+      const savedCarrera = await AsyncStorage.getItem('carrera');
+      
+      if (savedCentro) setCentroUnivercitarioValue(savedCentro);
+      if (savedCalendario) setCalendarioValue(savedCalendario);
+      if (savedCarrera) setCodigoCarreraValue(savedCarrera);
+    } catch (error) {
+      console.error('Error al cargar datos guardados:', error);
+    }
+  };
+
+  // Guardar datos en AsyncStorage
+  const saveUserData = async () => {
+    try {
+      await AsyncStorage.setItem('centroUniversitario', centroUnivercitarioValue);
+      await AsyncStorage.setItem('calendario', calendarioValue);
+      await AsyncStorage.setItem('carrera', codigoCarreraValue);
+      console.log('Datos guardados correctamente');
+    } catch (error) {
+      console.error('Error al guardar datos:', error);
+    }
+  };
+
+  // Cargar carreras cuando se seleccionen centro y ciclo
+  useEffect(() => {
+    if (centroUnivercitarioValue && calendarioValue) {
+      fetchCarreras(calendarioValue, centroUnivercitarioValue);
+    } else {
+      setCarreras([]);
+      setCodigoCarreraValue(null);
+    }
+  }, [centroUnivercitarioValue, calendarioValue]);
+
+  const fetchCentros = async () => {
+    try {
+      setLoadingCentros(true);
+      const response = await fetch(`${API_BASE_URL}/centros/`);
+      const data = await response.json();
+      const formattedData = data.map((centro, index) => ({
+        centro: centro,
+        value: centro
+      }));
+      setCentros(formattedData);
+    } catch (error) {
+      console.error('Error al cargar centros:', error);
+      Alert.alert('Error', 'No se pudieron cargar los centros universitarios');
+    } finally {
+      setLoadingCentros(false);
+    }
+  };
+
+  const fetchCiclos = async () => {
+    try {
+      setLoadingCiclos(true);
+      const response = await fetch(`${API_BASE_URL}/ciclos/`);
+      const data = await response.json();
+      const formattedData = data.map((ciclo, index) => ({
+        calendario: ciclo,
+        value: ciclo
+      }));
+      setCiclos(formattedData);
+    } catch (error) {
+      console.error('Error al cargar ciclos:', error);
+      Alert.alert('Error', 'No se pudieron cargar los ciclos');
+    } finally {
+      setLoadingCiclos(false);
+    }
+  };
+
+  const fetchCarreras = async (ciclo, centro) => {
+    try {
+      setLoadingCarreras(true);
+      const response = await fetch(`${API_BASE_URL}/carreras/${ciclo}/${centro}`);
+      const data = await response.json();
+      const formattedData = data.map((carrera) => ({
+        carrera: `${carrera.clave} - ${carrera.nombre}`,
+        value: carrera.clave
+      }));
+      setCarreras(formattedData);
+    } catch (error) {
+      console.error('Error al cargar carreras:', error);
+      Alert.alert('Error', 'No se pudieron cargar las carreras');
+      setCarreras([]);
+    } finally {
+      setLoadingCarreras(false);
+    }
+  };
+
+
+  if (loadingCentros || loadingCiclos) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Cargando datos...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container} >
-      <TextTitle style={styles.title}>Datos Generales</TextTitle>
-        <Dropdown
-          placeholder="Centro universitario" // Indica lo que se va a cambiar si elegir un valor
-          searchPlaceholder="Search..."
-          onChange={item => {
-            setCentroUnivercitarioValue(item.centro)
-          }}
-          // Styles
-          style={styles.textInputForm}
+      <View style={styles.formContainer}>
+        <TextTitle style={styles.title}>Datos Generales</TextTitle>
+        
+        <View style={styles.inputWrapper}>
+          <Dropdown
+            placeholder="Centro universitario"
+            searchPlaceholder="Buscar..."
+            onChange={item => {
+              setCentroUnivercitarioValue(item.value)
+            }}
+            style={styles.textInputForm}
+            containerStyle={styles.dropdownContainer}
+            placeholderStyle={styles.placeholderStyle}
+            selectedTextStyle={styles.selectedTextStyle}
+            inputSearchStyle={styles.inputSearchStyle}
+            search
+            data={centros}
+            maxHeight={300}
+            labelField="centro"
+            valueField="value"
+            value={centroUnivercitarioValue}
+          />
+        </View>
 
-          // Config
-          // iconStyle={styles.iconStyle} // Indica un icono
-          search // Activa busquedas
-          data={data[0].centroUnivercitario}
-          maxHeight={300}
-          labelField="centro"
-          valueField="value"
-        />
-        <Dropdown
-          placeholder="Calendario" // Indica lo que se va a cambiar si elegir un valor
-          searchPlaceholder="Search..."
-          onChange={item => {
-            setCalendarioValue(item.calendario)
-          }}
-          // Styles
-          style={styles.textInputForm}
+        <View style={styles.inputWrapper}>
+          <Dropdown
+            placeholder="Calendario"
+            searchPlaceholder="Buscar..."
+            onChange={item => {
+              setCalendarioValue(item.value)
+            }}
+            style={styles.textInputForm}
+            containerStyle={styles.dropdownContainer}
+            placeholderStyle={styles.placeholderStyle}
+            selectedTextStyle={styles.selectedTextStyle}
+            inputSearchStyle={styles.inputSearchStyle}
+            search
+            data={ciclos}
+            maxHeight={300}
+            labelField="calendario"
+            valueField="value"
+            value={calendarioValue}
+          />
+        </View>
 
-          // Config
-          // iconStyle={styles.iconStyle} // Indica un icono
-          search // Activa busquedas
-          data={data[0].calendario}
-          maxHeight={300}
-          labelField="calendario"
-          valueField="value"
-        />
+        <View style={styles.inputWrapper}>
+          <Dropdown
+            placeholder="Código de carrera"
+            searchPlaceholder="Buscar..."
+            onChange={(item) => {
+              setCodigoCarreraValue(item.value)
+            }}
+            style={styles.textInputForm}
+            containerStyle={styles.dropdownContainer}
+            placeholderStyle={styles.placeholderStyle}
+            selectedTextStyle={styles.selectedTextStyle}
+            inputSearchStyle={styles.inputSearchStyle}
+            search
+            data={carreras}
+            maxHeight={300}
+            labelField="carrera"
+            valueField="value"
+            value={codigoCarreraValue}
+            disable={!centroUnivercitarioValue || !calendarioValue || loadingCarreras}
+          />
+          {loadingCarreras && (
+            <ActivityIndicator size="small" color="#007AFF" style={styles.loader} />
+          )}
+        </View>
 
-        <Dropdown
-          placeholder="Codigo de carrera" // Indica lo que se va a cambiar si elegir un valor
-          searchPlaceholder="Search..."
-          onChange={(item) => {
-            setCodigoCarreraValue(item.carrera)
-          }}
-          // Styles
-          style={styles.textInputForm}
-
-          // Config
-          // iconStyle={styles.iconStyle} // Indica un icono
-          search // Activa busquedas
-          data={data[0].codigoCarrera}
-          maxHeight={300}
-          labelField="carrera"
-          valueField="value"
-        />
-        <Button  title="Siguiente" 
-          style={styles.button}
-          onPress={() => {
-            console.log("centro: " + centroUnivercitarioValue + " calendaer: " + calendarioValue + " carre: "+ codigoCarreraValue)
-            if(centroUnivercitarioValue != '0' && calendarioValue != '0' && codigoCarreraValue != '0'){
+        <Pressable 
+          style={[styles.button, (!centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue) && styles.buttonDisabled]}
+          onPress={async () => {
+            console.log("centro: " + centroUnivercitarioValue + " calendario: " + calendarioValue + " carrera: " + codigoCarreraValue)
+            if(centroUnivercitarioValue && calendarioValue && codigoCarreraValue){
+              await saveUserData();
               router.push('/Tabs/home')
+            } else {
+              Alert.alert('Campos incompletos', 'Por favor, completa todos los campos antes de continuar.')
             }
-          }}/>
-
+          }}>
+          <Text style={styles.buttonText}>Siguiente</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -104,21 +231,103 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container:{
+    flex: 1,
     width:'100%',
-    height:"100%",
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  formContainer: {
+    width: '100%',
+    maxWidth: isMobile ? '100%' : 500,
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: isMobile ? 20 : 40,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  title: {
+    marginBottom: 30,
+    fontSize: isMobile ? 24 : 28,
+  },
+  inputWrapper: {
+    width: '100%',
+    marginBottom: 16,
   },
   textInputForm:{
-    padding:10,
-    fontSize:20,
-    borderBlockColor: 'black',
-    borderWidth: 1,
-    marginBottom:5,
-    width:'20%'
+    width: '100%',
+    height: 50,
+    paddingHorizontal: 16,
+    borderColor: '#e0e0e0',
+    borderWidth: 1.5,
+    borderRadius: 8,
+    fontSize: isMobile ? 16 : 18,
+    backgroundColor: '#fafafa',
+  },
+  dropdownContainer: {
+    borderRadius: 8,
+    borderColor: '#e0e0e0',
+  },
+  placeholderStyle: {
+    fontSize: isMobile ? 16 : 18,
+    color: '#999',
+  },
+  selectedTextStyle: {
+    fontSize: isMobile ? 16 : 18,
+    color: '#333',
+  },
+  inputSearchStyle: {
+    height: 40,
+    fontSize: isMobile ? 16 : 18,
+    borderRadius: 8,
   },
   button:{
-    // padding:20
+    width: '100%',
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  buttonDisabled: {
+    backgroundColor: '#CCCCCC',
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: isMobile ? 16 : 18,
+    fontWeight: 'bold',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: isMobile ? 16 : 18,
+    color: '#666',
+  },
+  loader: {
+    marginTop: 10,
   }
 
 });
