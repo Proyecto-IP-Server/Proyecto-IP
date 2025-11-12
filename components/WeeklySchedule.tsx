@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 
 
 export function WeeklySchedule({carrera, centro, cliclo}:{carrera:string, centro:string, cliclo:string}) {
-    const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const timeSlots = () => {
         const slots = [];
         for (let hour = 7; hour <= 21; hour++) {
