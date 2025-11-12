@@ -1,8 +1,8 @@
-import { View, TextInput, Button } from 'react-native-web';
-import { Pressable, Text, StyleSheet } from 'react-native';
+import { View, TextInput, Button, StyleSheet } from 'react-native-web';
+import { Pressable, Text } from 'react-native';
 import { Image } from 'expo-image';
 import TextTitle from "../../components/TextTitle";
-import { Dropdown } from 'react-native-element-dropdown';
+import { MultiSelect } from 'react-native-element-dropdown';
 import { useState } from 'react';
 
 export default function OptionSidebarView() {
@@ -10,27 +10,30 @@ export default function OptionSidebarView() {
   const data = [
     {
       materias: [
-        { materia: 'IL-746 Matemáticas', value: '1' },
-        { materia: 'IL-346 Programación', value: '2' },
-        { materia: 'IL-373 Física', value: '3' },
+        { materia: 'IL-343 Matemáticas', value: '1' },
+        { materia: 'IL-543 Programación', value: '2' },
+        { materia: 'IL-344 Física', value: '3' },
+        { materia: 'IP-455 Bases de Datos', value: '4' },
       ],
       maestros: [
         { maestro: 'Dr. López', value: '1' },
         { maestro: 'Mtra. García', value: '2' },
         { maestro: 'Ing. Torres', value: '3' },
+        { maestro: 'Lic. Romero', value: '4' },
       ],
       horarios: [
         { horario: '7:00 - 9:00', value: '1' },
         { horario: '9:00 - 11:00', value: '2' },
         { horario: '11:00 - 13:00', value: '3' },
+        { horario: '13:00 - 15:00', value: '4' },
       ],
     },
   ];
 
-  // Estados para cada dropdown
-  const [materiaValue, setMateriaValue] = useState('');
-  const [maestroValue, setMaestroValue] = useState('');
-  const [horarioValue, setHorarioValue] = useState('');
+  // Estados para selección múltiple
+  const [materiaValues, setMateriaValues] = useState([]);
+  const [maestroValues, setMaestroValues] = useState([]);
+  const [horarioValues, setHorarioValues] = useState([]);
 
   return (
     <View
@@ -61,47 +64,65 @@ export default function OptionSidebarView() {
         </Pressable>
       </View>
 
-      {/* Dropdowns de Materia, Maestro y Horario */}
-      <Dropdown
-        placeholder="Materia"
+      {/* MULTISELECT Materias */}
+      <MultiSelect
+        placeholder="Materia(s)"
         search
         searchPlaceholder="Buscar materia..."
         data={data[0].materias}
         labelField="materia"
         valueField="value"
-        value={materiaValue}
-        onChange={(item) => setMateriaValue(item.materia)}
+        value={materiaValues}
+        onChange={item => setMateriaValues(item)}
         style={styles.dropdown}
+        maxHeight={300}
+        selectedTextStyle={{ color: 'black' }}
+        placeholderStyle={{ color: 'gray' }}
       />
 
-      <Dropdown
-        placeholder="Maestro"
+      {/* MULTISELECT Maestros */}
+      <MultiSelect
+        placeholder="Maestro(s)"
         search
         searchPlaceholder="Buscar maestro..."
         data={data[0].maestros}
         labelField="maestro"
         valueField="value"
-        value={maestroValue}
-        onChange={(item) => setMaestroValue(item.maestro)}
+        value={maestroValues}
+        onChange={item => setMaestroValues(item)}
         style={styles.dropdown}
+        maxHeight={300}
+        selectedTextStyle={{ color: 'black' }}
+        placeholderStyle={{ color: 'gray' }}
       />
 
-      <Dropdown
-        placeholder="Horario"
+      {/* MULTISELECT Horarios */}
+      <MultiSelect
+        placeholder="Horario(s)"
         search
         searchPlaceholder="Buscar horario..."
         data={data[0].horarios}
         labelField="horario"
         valueField="value"
-        value={horarioValue}
-        onChange={(item) => setHorarioValue(item.horario)}
+        value={horarioValues}
+        onChange={item => setHorarioValues(item)}
         style={styles.dropdown}
+        maxHeight={300}
+        selectedTextStyle={{ color: 'black' }}
+        placeholderStyle={{ color: 'gray' }}
       />
 
-      {/* Input y botón agregar */}
+      {/* Campo para escribir y botón Agregar */}
       <View style={{ marginTop: 10 }}>
         <TextInput placeholder="Escribe aquí..." style={styles.textInputForm} />
-        <Button title="Agregar" onPress={() => console.log('Agregado')} />
+        <Button
+          title="Agregar"
+          onPress={() => {
+            console.log('Materias:', materiaValues);
+            console.log('Maestros:', maestroValues);
+            console.log('Horarios:', horarioValues);
+          }}
+        />
       </View>
 
       {/* Botón limpiar al final */}
@@ -109,9 +130,9 @@ export default function OptionSidebarView() {
         <Button
           title="Limpiar"
           onPress={() => {
-            setMateriaValue('');
-            setMaestroValue('');
-            setHorarioValue('');
+            setMateriaValues([]);
+            setMaestroValues([]);
+            setHorarioValues([]);
           }}
         />
       </View>
