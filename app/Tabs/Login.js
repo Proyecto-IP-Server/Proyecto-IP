@@ -84,6 +84,9 @@ export default function Login() {
       }));
       setCentros(formattedData);
     } catch (error) {
+      const mensajeError = [{centro: 'Error de consulta, actualiza la página', value: ''}];
+      setCentros(mensajeError);
+
       console.error('Error al cargar centros:', error);
       Alert.alert('Error', 'No se pudieron cargar los centros universitarios');
     } finally {
@@ -96,7 +99,7 @@ export default function Login() {
       setLoadingCiclos(true);
       const response = await fetch(`${API_BASE_URL}/ciclos/`);
       const data = await response.json();
-      const formattedData = data.map((ciclo, index) => ({
+      const formattedData = data.map((ciclo) => ({
         calendario: ciclo,
         value: ciclo
       }));
@@ -118,6 +121,9 @@ export default function Login() {
         carrera: `${carrera.clave} - ${carrera.nombre}`,
         value: carrera.clave
       }));
+      if(formattedData.length === 0){
+        formattedData.push({carrera: 'No hay carreras disponibles', value: ''})
+      }
       setCarreras(formattedData);
     } catch (error) {
       console.error('Error al cargar carreras:', error);
@@ -128,6 +134,9 @@ export default function Login() {
     }
   };
 
+  function imprimirConsola(contenido) {
+    console.log(contenido+1);
+  }
 
   if (loadingCentros || loadingCiclos) {
     return (
@@ -187,11 +196,13 @@ export default function Login() {
 
         <View style={styles.inputWrapper}>
           <Dropdown
-            placeholder="Código de carrera"
+            placeholder="Carrera"
             searchPlaceholder="Buscar..."
+            
             onChange={(item) => {
               setCodigoCarreraValue(item.value)
             }}
+            
             style={styles.textInputForm}
             containerStyle={styles.dropdownContainer}
             placeholderStyle={styles.placeholderStyle}

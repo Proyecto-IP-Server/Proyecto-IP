@@ -16,6 +16,8 @@ export default function Home() {
     if (!loading && (!userData.centroUniversitario || !userData.calendario || !userData.carrera)) {
       // Si no hay datos guardados, redirigir al login
       router.push('/');
+    }else{
+      console.log('Datos del usuario cargados:', userData);
     }
   }, [loading, userData, router]);
 
