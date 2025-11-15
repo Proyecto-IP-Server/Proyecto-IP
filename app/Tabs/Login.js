@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Dropdown } from 'react-native-element-dropdown';
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../config/api';
+import { Button } from '@react-navigation/elements';
 
 console.log('API_BASE_URL:', API_BASE_URL);
 
@@ -122,7 +123,7 @@ export default function Login() {
         value: carrera.clave
       }));
       if(formattedData.length === 0){
-        formattedData.push({carrera: 'No hay carreras disponibles', value: ''})
+        formattedData.push({carrera: 'No hay carreras disponibles. Para ese ciclo escolar.', value: ''})
       }
       setCarreras(formattedData);
     } catch (error) {
@@ -221,7 +222,7 @@ export default function Login() {
           )}
         </View>
 
-        <Pressable 
+        <Button 
           style={[styles.button, (!centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue) && styles.buttonDisabled]}
           onPress={async () => {
             console.log("centro: " + centroUnivercitarioValue + " calendario: " + calendarioValue + " carrera: " + codigoCarreraValue)
@@ -233,7 +234,7 @@ export default function Login() {
             }
           }}>
           <Text style={styles.buttonText}>Siguiente</Text>
-        </Pressable>
+        </Button>
       </View>
     </View>
   );
