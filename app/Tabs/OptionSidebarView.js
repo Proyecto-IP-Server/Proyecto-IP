@@ -283,6 +283,15 @@ export default function OptionSidebarView({ onClose }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
       >
+        {/* Leyenda de contexto */}
+        {userData && (
+          <View style={styles.contextoBanner}>
+            <Text style={styles.contextoText}>
+              {userData.centroUniversitario} &gt; {userData.calendario} &gt; {userData.carrera}
+            </Text>
+          </View>
+        )}
+        
         {/* Encabezado */}
           <View style={styles.header}>
             <TextTitle>Condiciones</TextTitle>
@@ -698,6 +707,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 10,
     paddingBottom: 20,
+  },
+  contextoBanner: {
+    width: "100%",
+    marginBottom: 10,
+  },
+  contextoText: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "left",
   },
   header: {
     width: "100%",
