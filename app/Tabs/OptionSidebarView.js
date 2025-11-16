@@ -1,9 +1,7 @@
 import {
   View,
   TextInput,
-  Button,
   StyleSheet,
-  Modal,
   Text,
   ScrollView,
   Pressable,
@@ -12,8 +10,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import TextTitle from "../../components/TextTitle";
+import BlurModal from "../../components/BlurModal";
 import { Dropdown, MultiSelect } from "react-native-element-dropdown";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useUserData } from "../../hooks/useUserData";
 import { API_BASE_URL } from "../../config/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,6 +33,7 @@ export default function OptionSidebarView({ onClose }) {
   const [selectedMateria, setSelectedMateria] = useState(null);
   const [profesorPreferences, setProfesorPreferences] = useState({});
   const [loadingSecciones, setLoadingSecciones] = useState(false);
+  const [loadingMaterias, setLoadingMaterias] = useState(false);
   
   // Estado para guardar las materias añadidas
   const [materiasAnadidas, setMateriasAnadidas] = useState([]);
@@ -51,6 +51,13 @@ export default function OptionSidebarView({ onClose }) {
   
   // Estado para búsqueda de profesores
   const [searchProfesor, setSearchProfesor] = useState('');
+  
+  // Estados para modales de confirmación
+  const [modalConfirmarEliminar, setModalConfirmarEliminar] = useState(false);
+  const [modalConfirmarLimpiar, setModalConfirmarLimpiar] = useState(false);
+  const [materiaAEliminar, setMateriaAEliminar] = useState(null);
+  const [modalCambioCiclo, setModalCambioCiclo] = useState(false);
+  const [cicloAnterior, setCicloAnterior] = useState('');
 
   const { userData, loading } = useUserData();
 
@@ -89,6 +96,80 @@ export default function OptionSidebarView({ onClose }) {
     }
   }, [materiasAnadidas]);
 
+  // Función para confirmar limpiar todas las materias
+  const confirmarLimpiarTodasLasMaterias = async () => {
+    try {
+      await AsyncStorage.removeItem('materiasAnadidas');
+      await AsyncStorage.removeItem('cicloMaterias');
+      setMateriasAnadidas([]);
+      console.log('Todas las materias han sido eliminadas');
+    } catch (error) {
+      console.error('Error al limpiar materias:', error);
+    }
+    setModalConfirmarLimpiar(false);
+  };
+
+  // Función para verificar si el ciclo cambió
+  const verificarCambioCiclo = useCallback(async () => {
+    if (!userData || !userData.calendario) return;
+    
+    try {
+      const cicloGuardado = await AsyncStorage.getItem('cicloMaterias');
+      
+      console.log('Verificando ciclo - Guardado:', cicloGuardado, 'Actual:', userData.calendario);
+      
+      if (cicloGuardado && cicloGuardado.trim() !== userData.calendario.trim()) {
+        // El ciclo cambió - mostrar modal personalizado
+        console.log('¡Ciclo diferente detectado!');
+        setCicloAnterior(cicloGuardado);
+        setModalCambioCiclo(true);
+      } else if (!cicloGuardado && materiasAnadidas.length > 0) {
+        // No hay ciclo guardado pero hay materias, guardar el ciclo actual
+        console.log('Guardando ciclo actual:', userData.calendario);
+        await AsyncStorage.setItem('cicloMaterias', userData.calendario);
+      }
+    } catch (error) {
+      console.error('Error al verificar cambio de ciclo:', error);
+    }
+  }, [userData, materiasAnadidas.length]);
+
+  // Función para mantener materias del ciclo anterior
+  const handleMantenerMaterias = async () => {
+    try {
+      // Actualizar el ciclo del usuario al ciclo de las materias guardadas
+      await AsyncStorage.setItem('calendario', cicloAnterior);
+      
+      // Recargar la página para que se actualicen todos los datos con el ciclo anterior
+      if (typeof window !== 'undefined' && window.location) {
+        window.location.reload();
+      }
+      
+      // Cerrar el modal
+      setModalCambioCiclo(false);
+    } catch (error) {
+      console.error('Error al mantener materias:', error);
+    }
+  };
+
+  // Función para limpiar materias por cambio de ciclo
+  const handleLimpiarPorCambioCiclo = async () => {
+    try {
+      await AsyncStorage.removeItem('materiasAnadidas');
+      await AsyncStorage.setItem('cicloMaterias', userData.calendario);
+      setMateriasAnadidas([]);
+      setModalCambioCiclo(false);
+    } catch (error) {
+      console.error('Error al limpiar materias:', error);
+    }
+  };
+
+  // Verificar si el ciclo cambió cuando userData esté disponible
+  useEffect(() => {
+    if (userData && materiasAnadidas.length > 0) {
+      verificarCambioCiclo();
+    }
+  }, [userData, verificarCambioCiclo, materiasAnadidas.length]);
+
   /*
     Shema Materias:
     [
@@ -100,6 +181,7 @@ export default function OptionSidebarView({ onClose }) {
   */
   const fetchMaterias = async () => {
     try {
+      setLoadingMaterias(true);
       //materias/?offset=0&limit=1000&ciclo=2025B&carrera=ICOM&centro=CUCEI
       const response = await fetch(
         `${API_BASE_URL}/materias/?offset=0&limit=1000&ciclo=${userData.calendario}&carrera=${userData.carrera}&centro=${userData.centroUniversitario}`
@@ -116,6 +198,8 @@ export default function OptionSidebarView({ onClose }) {
       // Aquí puedes actualizar el estado con las materias obtenidas
     } catch (error) {
       console.error("Error al obtener las materias:", error);
+    } finally {
+      setLoadingMaterias(false);
     }
   };
 
@@ -190,7 +274,7 @@ export default function OptionSidebarView({ onClose }) {
   };
 
   // Función para guardar la materia con sus profesores y preferencias
-  const handleSaveMateria = () => {
+  const handleSaveMateria = async () => {
     if (!selectedMateria) return;
 
     const materiaData = {
@@ -198,6 +282,11 @@ export default function OptionSidebarView({ onClose }) {
       nombreMateria: materias.find(m => m.value === selectedMateria)?.label || '',
       profesores: profesorPreferences
     };
+    
+    // Guardar el ciclo actual cuando se añade la primera materia
+    if (materiasAnadidas.length === 0) {
+      await AsyncStorage.setItem('cicloMaterias', userData.calendario);
+    }
 
     if (editingIndex !== null) {
       // Editar materia existente
@@ -243,29 +332,25 @@ export default function OptionSidebarView({ onClose }) {
     fetchSecciones(materia.clave);
   };
 
-  // Función para eliminar una materia
+  // Función para mostrar modal de confirmación de eliminación
   const handleDeleteMateria = (index) => {
-    const nuevasMateriasAnadidas = materiasAnadidas.filter((_, i) => i !== index);
-    setMateriasAnadidas(nuevasMateriasAnadidas);
+    setMateriaAEliminar(index);
+    setModalConfirmarEliminar(true);
   };
-
-  // Función para limpiar todas las materias
-  const handleLimpiarTodasLasMaterias = async () => {
-    try {
-      await AsyncStorage.removeItem('materiasAnadidas');
-      setMateriasAnadidas([]);
-      console.log('Todas las materias han sido eliminadas');
-    } catch (error) {
-      console.error('Error al limpiar materias:', error);
+  
+  // Función para confirmar eliminación de materia
+  const confirmarEliminarMateria = () => {
+    if (materiaAEliminar !== null) {
+      const nuevasMateriasAnadidas = materiasAnadidas.filter((_, i) => i !== materiaAEliminar);
+      setMateriasAnadidas(nuevasMateriasAnadidas);
     }
+    setModalConfirmarEliminar(false);
+    setMateriaAEliminar(null);
   };
 
-  // Función para generar horarios
-  const handleGenerarHorarios = () => {
-    console.log('Generando horarios con opciones:', opcionesGeneracion);
-    console.log('Materias para generar:', materiasAnadidas);
-    // Aquí irá la lógica de generación de horarios
-    alert('Funcionalidad de generación de horarios en desarrollo');
+  // Función para mostrar modal de confirmación de limpiar todo
+  const handleLimpiarTodasLasMaterias = () => {
+    setModalConfirmarLimpiar(true);
   };
 
   return (
@@ -297,13 +382,14 @@ export default function OptionSidebarView({ onClose }) {
             <TextTitle>Condiciones</TextTitle>
           </View>
           <View style={styles.buttonContainer}>
-            <Button
-              title="Añadir Materia"
+            <Pressable
+              style={styles.anadirMateriaButton}
               onPress={() => {
                 setModalVisible(true);
               }}
-              
-            />
+            >
+              <Text style={styles.anadirMateriaButtonText}>Añadir Materia</Text>
+            </Pressable>
           </View>
 
           {/* Materias añadidas */}
@@ -381,39 +467,128 @@ export default function OptionSidebarView({ onClose }) {
           {/* Botones de generación de horario */}
           <View style={styles.generarHorarioContainer}>
             <Pressable 
-              style={[
-                styles.generarHorarioButton,
-                materiasAnadidas.length === 0 && styles.generarHorarioButtonDisabled
-              ]}
-              onPress={handleGenerarHorarios}
+              style={
+                materiasAnadidas.length === 0 
+                  ? styles.generarHorarioButtonDisabled
+                  : styles.generarHorarioButton
+              }
+              onPress={() => setModalOpcionesVisible(true)}
               disabled={materiasAnadidas.length === 0}
             >
-              <Text style={[
-                styles.generarHorarioButtonText,
-                materiasAnadidas.length === 0 && styles.generarHorarioButtonTextDisabled
-              ]}>
+              <Text style={
+                materiasAnadidas.length === 0
+                  ? styles.generarHorarioButtonTextDisabled
+                  : styles.generarHorarioButtonText
+              }>
                 Generar Horario
               </Text>
-            </Pressable>
-            
-            <Pressable 
-              style={styles.opcionesButton}
-              onPress={() => setModalOpcionesVisible(true)}
-            >
-              <Image 
-                source={require('../../assets/images/settings.svg')} 
-                style={styles.opcionesButtonIcon}
-                contentFit="contain"
-              />
             </Pressable>
           </View>
       </ScrollView>
 
+      {/* MODAL DE CONFIRMACIÓN - CAMBIO DE CICLO */}
+      <BlurModal
+        visible={modalCambioCiclo}
+        slideDistance={300}
+        containerStyle={styles.modalConfirmacionContainer}
+      >
+        <Text style={styles.modalConfirmacionTitle}>Cambio de ciclo detectado</Text>
+            <Text style={styles.modalConfirmacionText}>
+              Las materias guardadas son del ciclo <Text style={{fontWeight: 'bold'}}>{cicloAnterior}</Text>, pero ahora estás en el ciclo <Text style={{fontWeight: 'bold'}}>{userData?.calendario}</Text>.
+            </Text>
+            <Text style={styles.modalConfirmacionSubtext}>
+              Si mantienes las materias, tu ciclo actual cambiará a <Text style={{fontWeight: 'bold'}}>{cicloAnterior}</Text>. No puedes tener materias de diferentes ciclos.
+            </Text>
+            
+            <View style={styles.modalConfirmacionButtons}>
+              <Pressable 
+                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonCancel]}
+                onPress={handleMantenerMaterias}
+              >
+                <Text style={styles.modalConfirmacionButtonTextCancel}>Mantener</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonConfirm]}
+                onPress={handleLimpiarPorCambioCiclo}
+              >
+                <Text style={styles.modalConfirmacionButtonTextConfirm}>Limpiar</Text>
+              </Pressable>
+            </View>
+      </BlurModal>
+
+      {/* MODAL DE CONFIRMACIÓN - ELIMINAR MATERIA */}
+      <BlurModal
+        visible={modalConfirmarEliminar}
+        slideDistance={300}
+        containerStyle={styles.modalConfirmacionContainer}
+      >
+        <Text style={styles.modalConfirmacionTitle}>¿Eliminar materia?</Text>
+            <Text style={styles.modalConfirmacionText}>
+              {materiaAEliminar !== null && materiasAnadidas[materiaAEliminar] && 
+                `¿Estás seguro de que deseas eliminar "${materiasAnadidas[materiaAEliminar].nombreMateria}"?`
+              }
+            </Text>
+            <Text style={styles.modalConfirmacionSubtext}>Esta acción no se puede deshacer.</Text>
+            
+            <View style={styles.modalConfirmacionButtons}>
+              <Pressable 
+                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonCancel]}
+                onPress={() => {
+                  setModalConfirmarEliminar(false);
+                  setMateriaAEliminar(null);
+                }}
+              >
+                <Text style={styles.modalConfirmacionButtonTextCancel}>Cancelar</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonConfirm]}
+                onPress={confirmarEliminarMateria}
+              >
+                <Text style={styles.modalConfirmacionButtonTextConfirm}>Eliminar</Text>
+              </Pressable>
+            </View>
+      </BlurModal>
+
+      {/* MODAL DE CONFIRMACIÓN - LIMPIAR TODO */}
+      <BlurModal
+        visible={modalConfirmarLimpiar}
+        slideDistance={300}
+        containerStyle={styles.modalConfirmacionContainer}
+      >
+        <Text style={styles.modalConfirmacionTitle}>¿Limpiar todas las materias?</Text>
+            <Text style={styles.modalConfirmacionText}>
+              ¿Estás seguro de que deseas eliminar todas las materias añadidas?
+            </Text>
+            <Text style={styles.modalConfirmacionSubtext}>
+              Se eliminarán {materiasAnadidas.length} {materiasAnadidas.length === 1 ? 'materia' : 'materias'}. Esta acción no se puede deshacer.
+            </Text>
+            
+            <View style={styles.modalConfirmacionButtons}>
+              <Pressable 
+                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonCancel]}
+                onPress={() => setModalConfirmarLimpiar(false)}
+              >
+                <Text style={styles.modalConfirmacionButtonTextCancel}>Cancelar</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonConfirm]}
+                onPress={confirmarLimpiarTodasLasMaterias}
+              >
+                <Text style={styles.modalConfirmacionButtonTextConfirm}>Limpiar Todo</Text>
+              </Pressable>
+            </View>
+      </BlurModal>
+
       {/* MODAL DE OPCIONES */}
-      <Modal transparent={true} visible={modalOpcionesVisible} animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalOpcionesContainer}>
-            <ScrollView showsVerticalScrollIndicator={true}>
+      <BlurModal
+        visible={modalOpcionesVisible}
+        slideDistance={1000}
+        containerStyle={styles.modalOpcionesContainer}
+      >
+        <ScrollView showsVerticalScrollIndicator={true}>
               <Text style={styles.modalOpcionesTitle}>Opciones de Generación</Text>
               
               {/* Opción: Evitar empalmes */}
@@ -426,9 +601,13 @@ export default function OptionSidebarView({ onClose }) {
                   style={[styles.toggleButton, opcionesGeneracion.evitarEmpalmes && styles.toggleButtonActive]}
                   onPress={() => setOpcionesGeneracion(prev => ({...prev, evitarEmpalmes: !prev.evitarEmpalmes}))}
                 >
-                  <Text style={styles.toggleButtonText}>
-                    {opcionesGeneracion.evitarEmpalmes ? '✓' : ''}
-                  </Text>
+                  {opcionesGeneracion.evitarEmpalmes && (
+                    <Image 
+                      source={require('../../assets/images/check.svg')}
+                      style={styles.toggleCheckIcon}
+                      contentFit="contain"
+                    />
+                  )}
                 </Pressable>
               </View>
 
@@ -442,9 +621,13 @@ export default function OptionSidebarView({ onClose }) {
                   style={[styles.toggleButton, opcionesGeneracion.maximizarDiasLibres && styles.toggleButtonActive]}
                   onPress={() => setOpcionesGeneracion(prev => ({...prev, maximizarDiasLibres: !prev.maximizarDiasLibres}))}
                 >
-                  <Text style={styles.toggleButtonText}>
-                    {opcionesGeneracion.maximizarDiasLibres ? '✓' : ''}
-                  </Text>
+                  {opcionesGeneracion.maximizarDiasLibres && (
+                    <Image 
+                      source={require('../../assets/images/check.svg')}
+                      style={styles.toggleCheckIcon}
+                      contentFit="contain"
+                    />
+                  )}
                 </Pressable>
               </View>
 
@@ -458,9 +641,13 @@ export default function OptionSidebarView({ onClose }) {
                   style={[styles.toggleButton, opcionesGeneracion.minimizarHuecos && styles.toggleButtonActive]}
                   onPress={() => setOpcionesGeneracion(prev => ({...prev, minimizarHuecos: !prev.minimizarHuecos}))}
                 >
-                  <Text style={styles.toggleButtonText}>
-                    {opcionesGeneracion.minimizarHuecos ? '✓' : ''}
-                  </Text>
+                  {opcionesGeneracion.minimizarHuecos && (
+                    <Image 
+                      source={require('../../assets/images/check.svg')}
+                      style={styles.toggleCheckIcon}
+                      contentFit="contain"
+                    />
+                  )}
                 </Pressable>
               </View>
 
@@ -515,44 +702,53 @@ export default function OptionSidebarView({ onClose }) {
 
             {/* Botones del modal de opciones */}
             <View style={styles.modalOpcionesButtons}>
-              <Button 
-                title="Guardar Opciones" 
+              <Pressable 
+                style={styles.modalOpcionesButtonPrimary}
                 onPress={() => {
+                  console.log('Generando horarios con opciones:', opcionesGeneracion);
+                  console.log('Materias para generar:', materiasAnadidas);
                   setModalOpcionesVisible(false);
-                  console.log('Opciones guardadas:', opcionesGeneracion);
+                  // Aquí irá la lógica de generación de horarios
+                  alert('Funcionalidad de generación de horarios en desarrollo');
                 }}
-              />
+              >
+                <Text style={styles.modalOpcionesButtonTextPrimary}>Generar Horario</Text>
+              </Pressable>
+              
               <View style={{height: 10}} />
-              <Button 
-                title="Cerrar" 
+              
+              <Pressable 
+                style={styles.modalOpcionesButtonSecondary}
                 onPress={() => setModalOpcionesVisible(false)}
-                color="#888"
-              />
+              >
+                <Text style={styles.modalOpcionesButtonTextSecondary}>Cancelar</Text>
+              </Pressable>
             </View>
-          </View>
-        </View>
-      </Modal>
+      </BlurModal>
 
       {/* EL POP-UP */}
-      <Modal transparent={true} visible={modalVisible} animationType="slide">
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: "rgba(0,0,0,0.5)",
-          }}
-        >
-          <View
-            style={{
-              width: '90%',
-              maxWidth: 500,
-              maxHeight: '80%',
-              padding: 20,
-              backgroundColor: "white",
-              borderRadius: 10,
-            }}
-          >
+      <BlurModal
+        visible={modalVisible}
+        slideDistance={1000}
+        fastAnimation={true}
+        statusBarTranslucent={false}
+        containerStyle={{
+          width: '90%',
+          maxWidth: 500,
+          maxHeight: '80%',
+          padding: 20,
+          backgroundColor: "white",
+          borderRadius: 10,
+          shadowColor: "#000000ff",
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          elevation: 5,
+        }}
+      >
             <ScrollView showsVerticalScrollIndicator={true}>
               <Text
                 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}
@@ -560,36 +756,53 @@ export default function OptionSidebarView({ onClose }) {
                 {editingIndex !== null ? "Editar Materia" : "Materia a seleccionar"}
               </Text>
               
-              <Dropdown
-                placeholder="Selecciona una materia"
-                data={materias.filter(m => {
-                  // Si estamos editando, permitir la materia actual
-                  if (editingIndex !== null) {
-                    return true;
-                  }
-                  // Si es nueva, filtrar las ya añadidas
-                  return !materiasAnadidas.some(ma => ma.clave === m.value);
-                })}
-                labelField="label"
-                valueField="value"
-                style={styles.dropdown}
-                maxHeight={200}
-                selectedTextStyle={{ color: "black" }}
-                placeholderStyle={{ color: "gray" }}
-                search
-                searchPlaceholder="Buscar..."
-                value={selectedMateria}
-                onChange={(item) => {
-                  console.log("Materia seleccionada:", item);
-                  setSelectedMateria(item.value);
-                  fetchSecciones(item.value);
-                }}
-              />
+              <View style={{ zIndex: 9999, elevation: 9999 }}>
+                <Dropdown
+                  placeholder="Selecciona una materia"
+                  
+                  disable={loadingMaterias} 
+                  data={materias.filter(m => {
+                    // Si estamos editando, permitir la materia actual
+                    if (editingIndex !== null) {
+                      return true;
+                    }
+                    // Si es nueva, filtrar las ya añadidas
+                    return !materiasAnadidas.some(ma => ma.clave === m.value);
+                  })}
+                  labelField="label"
+                  valueField="value"
+                  style={styles.dropdown}
+                  maxHeight={300}
+                  selectedTextStyle={{ color: "black" }}
+                  placeholderStyle={{ color: "gray" }}
+                  search
+                  searchPlaceholder="Buscar..."
+                  value={selectedMateria}
+                  onChange={(item) => {
+                    console.log("Materia seleccionada:", item);
+                    setSelectedMateria(item.value);
+                    fetchSecciones(item.value);
+                  }}
+                  autoScroll={false}
+                  dropdownPosition="auto"
+                  flatListProps={{
+                    nestedScrollEnabled: true,
+                  }}
+                  
 
+                />
+              </View>
+              {/* Loading de materias*/}
+              {loadingMaterias && (
+                <View style={{ alignItems: 'center', marginVertical: 20 }}>
+                  <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+                  <Text style={{ marginTop: 10 }}>Cargando materias...</Text>
+                </View>
+              )}
               {/* Loading de secciones */}
               {loadingSecciones && (
                 <View style={{ alignItems: 'center', marginVertical: 20 }}>
-                  <ActivityIndicator size="large" color="#007AFF" />
+                  <ActivityIndicator size="large" color={PRIMARY_COLOR} />
                   <Text style={{ marginTop: 10 }}>Cargando profesores...</Text>
                 </View>
               )}
@@ -674,24 +887,38 @@ export default function OptionSidebarView({ onClose }) {
             </ScrollView>
 
             {/* Botones del modal */}
-            <View style={{ marginTop: 15, gap: 10 }}>
-              <Button 
-                title={editingIndex !== null ? "Guardar Cambios" : "Guardar Materia"} 
+            <View style={{ marginTop: 15, gap: 10}}>
+              <Pressable 
+                style={
+                  !selectedMateria || profesores.length === 0
+                    ? styles.modalButtonDisabled
+                    : styles.modalButtonPrimary
+                }
                 onPress={handleSaveMateria}
                 disabled={!selectedMateria || profesores.length === 0}
-              />
-              <Button 
-                title="Cancelar" 
+              >
+                <Text style={
+                  !selectedMateria || profesores.length === 0
+                    ? styles.modalButtonTextDisabled
+                    : styles.modalButtonTextPrimary
+                }>
+                  {editingIndex !== null ? "Guardar Cambios" : "Guardar Materia"}
+                </Text>
+              </Pressable>
+              
+              <Pressable 
+                style={styles.modalButtonSecondary}
                 onPress={handleCloseModal}
-                color="#888"
-              />
+              >
+                <Text style={styles.modalButtonTextSecondary}>Cancelar</Text>
+              </Pressable>
             </View>
-          </View>
-        </View>
-      </Modal>
+      </BlurModal>
     </View>
   );
 }
+
+const PRIMARY_COLOR = "#007AFF";
 
 const styles = StyleSheet.create({
   container: {
@@ -732,6 +959,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginVertical: 5,
     width: "100%",
+    zIndex: 2000,
   },
   textInputForm: {
     padding: 10,
@@ -917,15 +1145,19 @@ const styles = StyleSheet.create({
   },
   generarHorarioButton: {
     flex: 1,
-    backgroundColor: "#007AFF",
+    backgroundColor: PRIMARY_COLOR,
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   generarHorarioButtonDisabled: {
-    backgroundColor: "#CCCCCC",
-    opacity: 0.6,
+    flex: 1,
+    backgroundColor: "#999999",
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   generarHorarioButtonText: {
     color: "#fff",
@@ -933,27 +1165,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   generarHorarioButtonTextDisabled: {
-    color: "#888",
-  },
-  opcionesButton: {
-    width: 50,
-    height: 50,
-    backgroundColor: "#555",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  opcionesButtonIcon: {
-    width: 28,
-    height: 28,
+    color: "#CCCCCC",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   // Estilos para modal de opciones
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
   modalOpcionesContainer: {
     width: '90%',
     maxWidth: 450,
@@ -961,6 +1177,14 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalOpcionesTitle: {
     fontSize: 20,
@@ -995,7 +1219,7 @@ const styles = StyleSheet.create({
   toggleButton: {
     width: 50,
     height: 28,
-    borderRadius: 14,
+    borderRadius: 15,
     backgroundColor: "#ddd",
     justifyContent: "center",
     alignItems: "center",
@@ -1006,10 +1230,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#4CAF50",
     borderColor: "#2E7D32",
   },
-  toggleButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+  toggleCheckIcon: {
+    width: 30,
+    height: 30,
+    tintColor: "#fff",
   },
   horarioPreferidoContainer: {
     flexDirection: "row",
@@ -1026,7 +1250,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   horarioPreferidoButtonActive: {
-    backgroundColor: "#007AFF",
+    backgroundColor: PRIMARY_COLOR,
     borderColor: "#0056b3",
   },
   horarioPreferidoButtonText: {
@@ -1065,5 +1289,146 @@ const styles = StyleSheet.create({
   },
   modalOpcionesButtons: {
     marginTop: 15,
+  },
+  // Estilos para modales de confirmación
+  modalConfirmacionContainer: {
+    width: '85%',
+    maxWidth: 400,
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalConfirmacionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  modalConfirmacionText: {
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 8,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  modalConfirmacionSubtext: {
+    fontSize: 14,
+    color: "#999",
+    marginBottom: 24,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  modalConfirmacionButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalConfirmacionButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalConfirmacionButtonCancel: {
+    backgroundColor: "#f0f0f0",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  modalConfirmacionButtonConfirm: {
+    backgroundColor: "#ff4444",
+  },
+  modalConfirmacionButtonTextCancel: {
+    color: "#666",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalConfirmacionButtonTextConfirm: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  // Estilos para botones del modal de materia
+  modalButtonPrimary: {
+    backgroundColor: PRIMARY_COLOR,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalButtonDisabled: {
+    backgroundColor: "#CCCCCC",
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalButtonSecondary: {
+    backgroundColor: "#888",
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalButtonTextPrimary: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalButtonTextDisabled: {
+    color: "#999",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalButtonTextSecondary: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  // Estilos para botón "Añadir Materia"
+  anadirMateriaButton: {
+    backgroundColor: PRIMARY_COLOR,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  anadirMateriaButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  // Estilos para botones del modal de opciones
+  modalOpcionesButtonPrimary: {
+    backgroundColor: PRIMARY_COLOR,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalOpcionesButtonSecondary: {
+    backgroundColor: "#888",
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalOpcionesButtonTextPrimary: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalOpcionesButtonTextSecondary: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

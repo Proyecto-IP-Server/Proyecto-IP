@@ -1,11 +1,10 @@
-import { Pressable, View, Text, StyleSheet, Alert, ActivityIndicator, Platform, Dimensions } from 'react-native';
+import { Pressable, View, Text, StyleSheet, ActivityIndicator, Platform, Dimensions, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TextTitle from "../../components/TextTitle"
 import { useRouter } from 'expo-router';
 import { Dropdown } from 'react-native-element-dropdown';
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../config/api';
-import { Button } from '@react-navigation/elements';
 
 console.log('API_BASE_URL:', API_BASE_URL);
 
@@ -29,6 +28,18 @@ export default function Login() {
   const [loadingCentros, setLoadingCentros] = useState(true);
   const [loadingCiclos, setLoadingCiclos] = useState(true);
   const [loadingCarreras, setLoadingCarreras] = useState(false);
+  const [loadingValidacion, setLoadingValidacion] = useState(false);
+  
+  // Estado para mensajes de error
+  const [errorMessage, setErrorMessage] = useState('');
+
+
+  const showError = (message) => {
+    setErrorMessage(message);
+    setTimeout(() => {
+      setErrorMessage('');
+    }, 10000);
+  };
 
   // Cargar centros, ciclos y datos guardados al montar el componente
   useEffect(() => {
@@ -89,7 +100,7 @@ export default function Login() {
       setCentros(mensajeError);
 
       console.error('Error al cargar centros:', error);
-      Alert.alert('Error', 'No se pudieron cargar los centros universitarios');
+      showError('No se pudieron cargar los centros universitarios');
     } finally {
       setLoadingCentros(false);
     }
@@ -107,7 +118,7 @@ export default function Login() {
       setCiclos(formattedData);
     } catch (error) {
       console.error('Error al cargar ciclos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los ciclos');
+      showError('No se pudieron cargar los ciclos');
     } finally {
       setLoadingCiclos(false);
     }
@@ -128,16 +139,12 @@ export default function Login() {
       setCarreras(formattedData);
     } catch (error) {
       console.error('Error al cargar carreras:', error);
-      Alert.alert('Error', 'No se pudieron cargar las carreras');
+      showError('No se pudieron cargar las carreras. Inentalo de nuevo.');
       setCarreras([]);
     } finally {
       setLoadingCarreras(false);
     }
   };
-
-  function imprimirConsola(contenido) {
-    console.log(contenido+1);
-  }
 
   if (loadingCentros || loadingCiclos) {
     return (
@@ -149,7 +156,8 @@ export default function Login() {
   }
 
   return (
-    <View style={styles.container} >
+    <View style={styles.container}>
+    <StatusBar barStyle="dark-content"/>
       <View style={styles.formContainer}>
         <TextTitle style={styles.title}>Datos Generales</TextTitle>
         
@@ -211,30 +219,97 @@ export default function Login() {
             inputSearchStyle={styles.inputSearchStyle}
             search
             data={carreras}
+            value={codigoCarreraValue}
             maxHeight={300}
             labelField="carrera"
             valueField="value"
-            value={codigoCarreraValue}
+            autoScroll={false}
+            dropdownPosition='top'
+            flatListProps={{
+                    nestedScrollEnabled: true,
+                  }}
             disable={!centroUnivercitarioValue || !calendarioValue || loadingCarreras}
           />
           {loadingCarreras && (
-            <ActivityIndicator size="small" color="#007AFF" style={styles.loader} />
+            <View style={{ alignItems: 'center', marginVertical: 20 }}>
+              <ActivityIndicator size="small" color="#007AFF" style={styles.loader} />
+              <Text style={{ marginTop: 10 }}>Cargando carreras...</Text>
+            </View>
           )}
         </View>
 
-        <Button 
-          style={[styles.button, (!centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue) && styles.buttonDisabled]}
+        {errorMessage ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {loadingValidacion ? (
+          <View style={{ alignItems: 'center', marginVertical: 20 }}>
+            <ActivityIndicator size="small" color="#007AFF" style={styles.loader} />
+            <Text style={styles.loadingText}>Validando datos, por favor espera...</Text>
+          </View>
+        ) : null
+        }
+
+        <Pressable 
+          style={
+            !centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue
+              ? styles.buttonDisabled
+              : styles.button
+          }
           onPress={async () => {
             console.log("centro: " + centroUnivercitarioValue + " calendario: " + calendarioValue + " carrera: " + codigoCarreraValue)
-            if(centroUnivercitarioValue && calendarioValue && codigoCarreraValue){
-              await saveUserData();
-              router.push('/Tabs/home')
-            } else {
-              Alert.alert('Campos incompletos', 'Por favor, completa todos los campos antes de continuar.')
+            
+            if(!centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue){
+              showError('Por favor, completa todos los campos antes de continuar.');
+              return;
             }
-          }}>
-          <Text style={styles.buttonText}>Siguiente</Text>
-        </Button>
+            
+            // Validar que la carrera seleccionada exista en la lista de carreras disponibles
+            const carreraExiste = carreras.some(carrera => carrera.value === codigoCarreraValue && carrera.value !== '');
+            if (!carreraExiste) {
+              setCodigoCarreraValue(null);
+              await AsyncStorage.removeItem('carrera');
+              return;
+            }
+            
+            
+            // Validacion a fuerza bruta porque dios mio los problemas que dio esto
+            setLoadingValidacion(true);
+            const response = await fetch(`${API_BASE_URL}/carreras/${calendarioValue}/${centroUnivercitarioValue}`);
+            const data = await response.json();
+            try {
+              const carreraValida = data.some(carrera => carrera.clave === codigoCarreraValue);
+              if (!carreraValida) {
+                showError('La carrera seleccionada no es válida. Por favor, selecciona una carrera válida.');
+                setCodigoCarreraValue(null);
+                await AsyncStorage.removeItem('carrera');
+                return;
+              }
+            } catch (error) {
+              console.error('Error durante la validación de la carrera:', error);
+              showError('Ocurrió un error durante la validación. Por favor, intenta de nuevo.');
+              setCodigoCarreraValue(null);
+              await AsyncStorage.removeItem('carrera');
+              return;
+            } finally {
+              setLoadingValidacion(false);
+            }
+
+            await saveUserData();
+            router.push('/Tabs/home')
+          }}
+          disabled={!centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue}
+        >
+          <Text style={
+            !centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue
+              ? styles.buttonTextDisabled
+              : styles.buttonText
+          }>
+            Siguiente
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -325,11 +400,21 @@ const styles = StyleSheet.create({
     }),
   },
   buttonDisabled: {
+    width: '100%',
     backgroundColor: '#CCCCCC',
-    opacity: 0.6,
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonText: {
     color: 'white',
+    fontSize: isMobile ? 16 : 18,
+    fontWeight: 'bold',
+  },
+  buttonTextDisabled: {
+    color: '#999',
     fontSize: isMobile ? 16 : 18,
     fontWeight: 'bold',
   },
@@ -340,6 +425,21 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 10,
+  },
+  errorContainer: {
+    width: '100%',
+    backgroundColor: '#ffebee',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f44336',
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: isMobile ? 14 : 16,
+    fontWeight: '500',
+    textAlign: 'center',
   }
 
 });

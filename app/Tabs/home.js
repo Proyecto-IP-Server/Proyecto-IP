@@ -17,6 +17,7 @@ export default function Home() {
   const [sidebarWidth, setSidebarWidth] = useState(20); // Porcentaje inicial (20%)
   const [isResizing, setIsResizing] = useState(false);
   const { userData, loading } = useUserData();
+  
 
   // Verificar que el usuario haya completado el login
   useEffect(() => {
@@ -37,6 +38,9 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // Solo ejecutar en web donde document existe
+    if (Platform.OS !== 'web') return;
+
     const handleMouseMove = (e) => {
       if (isResizing && !isMobile) {
         const newWidth = (e.clientX / window.innerWidth) * 100;
