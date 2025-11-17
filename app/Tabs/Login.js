@@ -46,6 +46,7 @@ export default function Login() {
     fetchCentros();
     fetchCiclos();
     loadSavedData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cargar datos guardados del AsyncStorage
@@ -83,6 +84,7 @@ export default function Login() {
       setCarreras([]);
       setCodigoCarreraValue(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [centroUnivercitarioValue, calendarioValue]);
 
   const fetchCentros = async () => {
@@ -254,7 +256,7 @@ export default function Login() {
 
         <Pressable 
           style={
-            !centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue
+            !centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue || loadingCarreras || loadingValidacion
               ? styles.buttonDisabled
               : styles.button
           }
@@ -300,10 +302,10 @@ export default function Login() {
             await saveUserData();
             router.push('/Tabs/home')
           }}
-          disabled={!centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue}
+          disabled={!centroUnivercitarioValue||!calendarioValue||!codigoCarreraValue|| loadingCarreras || loadingValidacion}
         >
           <Text style={
-            !centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue
+            !centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue || loadingCarreras || loadingValidacion
               ? styles.buttonTextDisabled
               : styles.buttonText
           }>

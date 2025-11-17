@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+
+<svg
+   width="800px"
+   height="800px"
+   viewBox="0 0 24 24"
+   fill="none"
+   version="1.1"
+   id="svg10"
+   sodipodi:docname="alarm.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs14" />
+  <sodipodi:namedview
+     id="namedview12"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="0.67"
+     inkscape:cx="400.74627"
+     inkscape:cy="400"
+     inkscape:window-width="1366"
+     inkscape:window-height="691"
+     inkscape:window-x="0"
+     inkscape:window-y="501"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg10" />
+  <path
+     d="M15 13L12 13M12 13L9 13M12 13L12 10M12 13L12 16"
+     stroke="#1C274C"
+     stroke-width="1.5"
+     stroke-linecap="round"
+     id="path2"
+     style="stroke:#ffffff;stroke-opacity:1" />
+  <path
+     d="M3.5 4.5L7.50002 2"
+     stroke="#1C274C"
+     stroke-width="1.5"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     id="path4"
+     style="stroke:#ffffff;stroke-opacity:1" />
+  <path
+     d="M20.5 4.5L16.5 2"
+     stroke="#1C274C"
+     stroke-width="1.5"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     id="path6"
+     style="stroke:#ffffff;stroke-opacity:1" />
+  <path
+     d="M7.5 5.20404C8.82378 4.43827 10.3607 4 12 4C16.9706 4 21 8.02944 21 13C21 17.9706 16.9706 22 12 22C7.02944 22 3 17.9706 3 13C3 11.3607 3.43827 9.82378 4.20404 8.5"
+     stroke="#1C274C"
+     stroke-width="1.5"
+     stroke-linecap="round"
+     id="path8"
+     style="stroke:#ffffff;stroke-opacity:1" />
+</svg>

@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { useState, useEffect, useRef } from "react";
 import { useUserData } from "../../hooks/useUserData";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator } from "react-native-web";
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -13,8 +14,8 @@ const isMobile = width < 768;
 export default function Home() {
   const router = useRouter()
   const insets = useSafeAreaInsets();
-  const [activOptionSidebar, setActivOptionSidebar] = useState(true) // Inicia abierto
-  const [sidebarWidth, setSidebarWidth] = useState(20); // Porcentaje inicial (20%)
+  const [activOptionSidebar, setActivOptionSidebar] = useState(true) 
+  const [sidebarWidth, setSidebarWidth] = useState(25);
   const [isResizing, setIsResizing] = useState(false);
   const { userData, loading } = useUserData();
   
@@ -73,21 +74,49 @@ export default function Home() {
         styles.header,
         { paddingTop: insets.top + 5 }
       ]}>
-        <View style={{marginRight:10}}>
-          <Pressable onPress={() => router.push('/')}>
-            <Image source={{uri:"https://cdn-icons-png.flaticon.com/512/94/94510.png"}} style={{width: 35, height: 35}}/>
-          </Pressable>
-        </View>
-        <View style={{marginRight:10}}>
+        {/* Botón de regresar - Solo visible en desktop o cuando sidebar está abierto en móvil */}
+        {(!isMobile || activOptionSidebar) && (
           <Pressable 
-            onPress={()=> {
-              setActivOptionSidebar(!activOptionSidebar)
-              
-            }}
+            style={styles.regresarButton}
+            onPress={() => router.push('/')}
           >
-            <Image source={{uri:"https://images.icon-icons.com/1919/PNG/512/optionscircularbutton_122043.png"}} style={{width: 35, height: 35}}/>
+            <Image 
+              source={require('@/assets/images/arrow-left.svg')} 
+              style={styles.regresarIcon}
+              contentFit="contain"
+            />
+            <Text style={styles.regresarButtonText}>Regresar</Text>
           </Pressable>
-        </View>
+        )}
+        
+        {/* Botón de opciones - Solo visible en desktop */}
+        {!isMobile && (
+          <View style={{marginRight:10}}>
+            <Pressable 
+              onPress={()=> {
+                setActivOptionSidebar(!activOptionSidebar)
+                
+              }}
+            >
+              <Image source={{uri:"https://images.icon-icons.com/1919/PNG/512/optionscircularbutton_122043.png"}} style={{width: 35, height: 35}}/>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Botón de regreso a opciones - Solo visible en móvil cuando sidebar está cerrado */}
+        {isMobile && !activOptionSidebar && (
+          <Pressable 
+            style={styles.volverOpcionesButton}
+            onPress={() => setActivOptionSidebar(true)}
+          >
+            <Image 
+              source={require('@/assets/images/arrow-left.svg')} 
+              style={styles.volverOpcionesIcon}
+              contentFit="contain"
+            />
+            <Text style={styles.volverOpcionesButtonText}>Volver a Opciones</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Contenido principal */}
@@ -122,14 +151,11 @@ export default function Home() {
           ]}>
             {loading ? (
               <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#007AFF" style={styles.loader} />
                 <Text>Cargando...</Text>
               </View>
             ) : (
-              <WeeklySchedule 
-                carrera={userData.carrera}
-                centro={userData.centroUniversitario}
-                ciclo={userData.calendario}
-              />
+              <WeeklySchedule />
             )}
           </View>
         )}
@@ -183,6 +209,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+    pointerEvents: 'auto',
   },
   resizeLine: {
     width: 2,
@@ -197,5 +224,48 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  }
+  },
+  loader: {
+    marginTop: 10,
+  },
+  volverOpcionesButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginLeft: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  volverOpcionesIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#fff',
+  },
+  volverOpcionesButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  regresarButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  regresarIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#fff',
+  },
+  regresarButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
 });

@@ -6,16 +6,20 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import TextTitle from "../../components/TextTitle";
 import BlurModal from "../../components/BlurModal";
-import { Dropdown, MultiSelect } from "react-native-element-dropdown";
+import { Dropdown } from "react-native-element-dropdown";
 import { useEffect, useState, useCallback } from "react";
 import { useUserData } from "../../hooks/useUserData";
 import { API_BASE_URL } from "../../config/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
 
 export default function OptionSidebarView({ onClose }) {
   const insets = useSafeAreaInsets();
@@ -24,9 +28,9 @@ export default function OptionSidebarView({ onClose }) {
   const [secciones, setSecciones] = useState([]);
   const [profesores, setProfesores] = useState([]);
 
-  const [materiaValues, setMateriaValues] = useState([]);
-  const [maestroValues, setMaestroValues] = useState([]);
-  const [horarioValues, setHorarioValues] = useState([]);
+  //const [materiaValues, setMateriaValues] = useState([]);
+  //const [maestroValues, setMaestroValues] = useState([]);
+  //const [horarioValues, setHorarioValues] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   
   // Estados para el modal
@@ -42,14 +46,19 @@ export default function OptionSidebarView({ onClose }) {
   // Estado para el modal de opciones de generación
   const [modalOpcionesVisible, setModalOpcionesVisible] = useState(false);
   const [opcionesGeneracion, setOpcionesGeneracion] = useState({
-    evitarEmpalmes: true,
-    maximizarDiasLibres: false,
-    minimizarHuecos: true,
-    horarioPreferido: 'cualquiera', // 'matutino', 'vespertino', 'cualquiera'
-    numeroHorarios: 5,
+    // General
+    cupos: true,
+    periodos: false,
+    maxHorarios: 5,
+    huecosFinales: -1,
+    huecosIntermedios: -1,
+    // Orden de los grupos
+    prioridadHora: 0,
+    prioridadDemanda: 0,
   });
   
-  // Estado para búsqueda de profesores
+  // Estado para mostrar tooltips
+  const [tooltipVisible, setTooltipVisible] = useState(null);  // Estado para búsqueda de profesores
   const [searchProfesor, setSearchProfesor] = useState('');
   
   // Estados para modales de confirmación
@@ -388,7 +397,14 @@ export default function OptionSidebarView({ onClose }) {
                 setModalVisible(true);
               }}
             >
-              <Text style={styles.anadirMateriaButtonText}>Añadir Materia</Text>
+              <View style={styles.buttonContent}>
+                <Image 
+                  source={require('../../assets/images/add.svg')}
+                  style={styles.anadirMateriaButtonIcon}
+                  contentFit="contain"
+                />
+                <Text style={styles.anadirMateriaButtonText}>Añadir Materia</Text>
+              </View>
             </Pressable>
           </View>
 
@@ -401,7 +417,14 @@ export default function OptionSidebarView({ onClose }) {
                   style={styles.limpiarTodoButton}
                   onPress={handleLimpiarTodasLasMaterias}
                 >
-                  <Text style={styles.limpiarTodoButtonText}>Limpiar Todo</Text>
+                  <View style={styles.buttonContent}>
+                    <Image 
+                      source={require('../../assets/images/trash-bin.svg')}
+                      style={styles.limpiarTodoButtonIcon}
+                      contentFit="contain"
+                    />
+                    <Text style={styles.limpiarTodoButtonText}>Limpiar Todo</Text>
+                  </View>
                 </Pressable>
               </View>
               {materiasAnadidas.map((materia, index) => (
@@ -456,11 +479,36 @@ export default function OptionSidebarView({ onClose }) {
                         handleDeleteMateria(index);
                       }}
                     >
-                      <Text style={styles.deleteButtonText}>✕</Text>
+                      <Image 
+                        source={require('../../assets/images/trash-bin.svg')}
+                        style={styles.deleteButtonIcon}
+                        contentFit="contain"
+                      />
                     </Pressable>
                   </Pressable>
                 </View>
               ))}
+            </View>
+          )}
+
+          {/* Botón Preferencias Horarios - Solo visible en móviles */}
+          {isMobile && (
+            <View style={styles.preferenciasHorariosContainer}>
+              <Pressable 
+                style={styles.preferenciasHorariosButton}
+                onPress={onClose}
+              >
+                <View style={styles.buttonContent}>
+                  <Image 
+                    source={require('../../assets/images/alarm.svg')}
+                    style={styles.preferenciasHorariosButtonIcon}
+                    contentFit="contain"
+                  />
+                  <Text style={styles.preferenciasHorariosButtonText}>
+                    Preferencias Horarios
+                  </Text>
+                </View>
+              </Pressable>
             </View>
           )}
 
@@ -475,13 +523,20 @@ export default function OptionSidebarView({ onClose }) {
               onPress={() => setModalOpcionesVisible(true)}
               disabled={materiasAnadidas.length === 0}
             >
-              <Text style={
-                materiasAnadidas.length === 0
-                  ? styles.generarHorarioButtonTextDisabled
-                  : styles.generarHorarioButtonText
-              }>
-                Generar Horario
-              </Text>
+              <View style={styles.buttonContent}>
+                <Image 
+                  source={require('../../assets/images/calendar-search.svg')}
+                  style={styles.generarHorarioButtonIcon}
+                  contentFit="contain"
+                />
+                <Text style={
+                  materiasAnadidas.length === 0
+                    ? styles.generarHorarioButtonTextDisabled
+                    : styles.generarHorarioButtonText
+                }>
+                  Opciones de Generación
+                </Text>
+              </View>
             </Pressable>
           </View>
       </ScrollView>
@@ -591,112 +646,312 @@ export default function OptionSidebarView({ onClose }) {
         <ScrollView showsVerticalScrollIndicator={true}>
               <Text style={styles.modalOpcionesTitle}>Opciones de Generación</Text>
               
-              {/* Opción: Evitar empalmes */}
-              <View style={styles.opcionItem}>
-                <View style={styles.opcionTextos}>
-                  <Text style={styles.opcionLabel}>Evitar empalmes de horario</Text>
-                  <Text style={styles.opcionDescripcion}>No permitir materias que se traslapen</Text>
-                </View>
-                <Pressable
-                  style={[styles.toggleButton, opcionesGeneracion.evitarEmpalmes && styles.toggleButtonActive]}
-                  onPress={() => setOpcionesGeneracion(prev => ({...prev, evitarEmpalmes: !prev.evitarEmpalmes}))}
-                >
-                  {opcionesGeneracion.evitarEmpalmes && (
-                    <Image 
-                      source={require('../../assets/images/check.svg')}
-                      style={styles.toggleCheckIcon}
-                      contentFit="contain"
-                    />
-                  )}
-                </Pressable>
-              </View>
-
-              {/* Opción: Maximizar días libres */}
-              <View style={styles.opcionItem}>
-                <View style={styles.opcionTextos}>
-                  <Text style={styles.opcionLabel}>Maximizar días libres</Text>
-                  <Text style={styles.opcionDescripcion}>Intentar agrupar clases en menos días</Text>
-                </View>
-                <Pressable
-                  style={[styles.toggleButton, opcionesGeneracion.maximizarDiasLibres && styles.toggleButtonActive]}
-                  onPress={() => setOpcionesGeneracion(prev => ({...prev, maximizarDiasLibres: !prev.maximizarDiasLibres}))}
-                >
-                  {opcionesGeneracion.maximizarDiasLibres && (
-                    <Image 
-                      source={require('../../assets/images/check.svg')}
-                      style={styles.toggleCheckIcon}
-                      contentFit="contain"
-                    />
-                  )}
-                </Pressable>
-              </View>
-
-              {/* Opción: Minimizar huecos */}
-              <View style={styles.opcionItem}>
-                <View style={styles.opcionTextos}>
-                  <Text style={styles.opcionLabel}>Minimizar huecos entre clases</Text>
-                  <Text style={styles.opcionDescripcion}>Reducir tiempos libres entre materias</Text>
-                </View>
-                <Pressable
-                  style={[styles.toggleButton, opcionesGeneracion.minimizarHuecos && styles.toggleButtonActive]}
-                  onPress={() => setOpcionesGeneracion(prev => ({...prev, minimizarHuecos: !prev.minimizarHuecos}))}
-                >
-                  {opcionesGeneracion.minimizarHuecos && (
-                    <Image 
-                      source={require('../../assets/images/check.svg')}
-                      style={styles.toggleCheckIcon}
-                      contentFit="contain"
-                    />
-                  )}
-                </Pressable>
-              </View>
-
-              {/* Horario preferido */}
-              <View style={styles.opcionItemTitulo}>
-                <Text style={styles.opcionLabel}>Horario preferido</Text>
-              </View>
-              <View style={styles.horarioPreferidoContainer}>
-                {['cualquiera', 'matutino', 'vespertino'].map(tipo => (
+              {/* ============== SECCIÓN: GENERAL ============== */}
+              <View style={styles.seccionContainer}>
+                <Text style={styles.seccionTitle}>General</Text>
+                
+                {/* Cupos */}
+                <View style={styles.opcionItem}>
+                  <View style={styles.opcionTextos}>
+                    <View style={styles.opcionLabelContainer}>
+                      <Text style={styles.opcionLabel}>Solo grupos con cupo</Text>
+                      <Pressable
+                        style={styles.tooltipIconButton}
+                        onPress={() => setTooltipVisible(tooltipVisible === 'cupos' ? null : 'cupos')}
+                      >
+                        <Text style={styles.tooltipIcon}>?</Text>
+                      </Pressable>
+                    </View>
+                    {tooltipVisible === 'cupos' && (
+                      <Text style={styles.tooltipText}>
+                        Si se marca, se descartarán todos los grupos cuyo cupo aparezca en 0.
+                      </Text>
+                    )}
+                  </View>
                   <Pressable
-                    key={tipo}
-                    style={[
-                      styles.horarioPreferidoButton,
-                      opcionesGeneracion.horarioPreferido === tipo && styles.horarioPreferidoButtonActive
-                    ]}
-                    onPress={() => setOpcionesGeneracion(prev => ({...prev, horarioPreferido: tipo}))}
+                    style={[styles.toggleButton, opcionesGeneracion.cupos && styles.toggleButtonActive]}
+                    onPress={() => setOpcionesGeneracion(prev => ({...prev, cupos: !prev.cupos}))}
                   >
-                    <Text style={[
-                      styles.horarioPreferidoButtonText,
-                      opcionesGeneracion.horarioPreferido === tipo && styles.horarioPreferidoButtonTextActive
-                    ]}>
-                      {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
-                    </Text>
+                    {opcionesGeneracion.cupos && (
+                      <Image 
+                        source={require('../../assets/images/check.svg')}
+                        style={styles.toggleCheckIcon}
+                        contentFit="contain"
+                      />
+                    )}
                   </Pressable>
-                ))}
+                </View>
+
+                {/* Periodos */}
+                <View style={styles.opcionItem}>
+                  <View style={styles.opcionTextos}>
+                    <View style={styles.opcionLabelContainer}>
+                      <Text style={styles.opcionLabel}>Evitar conflictos de &quot;Materias Espejo&quot;</Text>
+                      <Pressable
+                        style={styles.tooltipIconButton}
+                        onPress={() => setTooltipVisible(tooltipVisible === 'periodos' ? null : 'periodos')}
+                      >
+                        <Text style={styles.tooltipIcon}>?</Text>
+                      </Pressable>
+                    </View>
+                    {tooltipVisible === 'periodos' && (
+                      <Text style={styles.tooltipText}>
+                        Activa esto si cursarás materias que son equivalentes (mismo ID) pero de diferentes periodos. El combinador evitará que se traslapen.
+                      </Text>
+                    )}
+                  </View>
+                  <Pressable
+                    style={[styles.toggleButton, opcionesGeneracion.periodos && styles.toggleButtonActive]}
+                    onPress={() => setOpcionesGeneracion(prev => ({...prev, periodos: !prev.periodos}))}
+                  >
+                    {opcionesGeneracion.periodos && (
+                      <Image 
+                        source={require('../../assets/images/check.svg')}
+                        style={styles.toggleCheckIcon}
+                        contentFit="contain"
+                      />
+                    )}
+                  </Pressable>
+                </View>
+
+                {/* Max Horarios */}
+                <View style={styles.opcionItemTitulo}>
+                  <View style={styles.opcionLabelContainer}>
+                    <Text style={styles.opcionLabel}>Límite de horarios a generar:</Text>
+                    <Pressable
+                      style={styles.tooltipIconButton}
+                      onPress={() => setTooltipVisible(tooltipVisible === 'maxHorarios' ? null : 'maxHorarios')}
+                    >
+                      <Text style={styles.tooltipIcon}>?</Text>
+                    </Pressable>
+                  </View>
+                  {tooltipVisible === 'maxHorarios' && (
+                    <Text style={styles.tooltipText}>
+                      El programa dejará de buscar una vez que alcance este número de combinaciones válidas. Usa -1 para &quot;infinito&quot;.
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.numeroHorariosContainer}>
+                  {[3, 5, 10, 15, -1].map(num => (
+                    <Pressable
+                      key={num}
+                      style={[
+                        styles.numeroHorarioButton,
+                        opcionesGeneracion.maxHorarios === num && styles.numeroHorarioButtonActive
+                      ]}
+                      onPress={() => setOpcionesGeneracion(prev => ({...prev, maxHorarios: num}))}
+                    >
+                      <Text style={[
+                        styles.numeroHorarioButtonText,
+                        opcionesGeneracion.maxHorarios === num && styles.numeroHorarioButtonTextActive
+                      ]}>
+                        {num === -1 ? 'Infinito' : num}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Huecos Finales */}
+                <View style={styles.opcionItemTitulo}>
+                  <View style={styles.opcionLabelContainer}>
+                    <Text style={styles.opcionLabel}>Máx. de huecos en horario FINAL:</Text>
+                    <Pressable
+                      style={styles.tooltipIconButton}
+                      onPress={() => setTooltipVisible(tooltipVisible === 'huecosFinales' ? null : 'huecosFinales')}
+                    >
+                      <Text style={styles.tooltipIcon}>?</Text>
+                    </Pressable>
+                  </View>
+                  {tooltipVisible === 'huecosFinales' && (
+                    <Text style={styles.tooltipText}>
+                      Es el número máximo de horas libres permitidas en una combinación completa. Si un horario tiene más huecos que este número, será descartado.
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.numeroHorariosContainer}>
+                  {[0, 1, 2, 3, 4, -1].map(num => (
+                    <Pressable
+                      key={num}
+                      style={[
+                        styles.numeroHorarioButton,
+                        opcionesGeneracion.huecosFinales === num && styles.numeroHorarioButtonActive
+                      ]}
+                      onPress={() => setOpcionesGeneracion(prev => ({...prev, huecosFinales: num}))}
+                    >
+                      <Text style={[
+                        styles.numeroHorarioButtonText,
+                        opcionesGeneracion.huecosFinales === num && styles.numeroHorarioButtonTextActive
+                      ]}>
+                        {num === -1 ? 'Infinito' : num}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Huecos Intermedios */}
+                <View style={styles.opcionItemTitulo}>
+                  <View style={styles.opcionLabelContainer}>
+                    <Text style={styles.opcionLabel}>Máx. de huecos en horarios PARCIALES:</Text>
+                    <Pressable
+                      style={styles.tooltipIconButton}
+                      onPress={() => setTooltipVisible(tooltipVisible === 'huecosIntermedios' ? null : 'huecosIntermedios')}
+                    >
+                      <Text style={styles.tooltipIcon}>?</Text>
+                    </Pressable>
+                  </View>
+                  {tooltipVisible === 'huecosIntermedios' && (
+                    <Text style={styles.tooltipText}>
+                      (Optimización) Número de huecos permitidos mientras se está construyendo un horario. Ayuda a descartar ramas de búsqueda ineficientes.
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.numeroHorariosContainer}>
+                  {[0, 1, 2, 3, 4, -1].map(num => (
+                    <Pressable
+                      key={num}
+                      style={[
+                        styles.numeroHorarioButton,
+                        opcionesGeneracion.huecosIntermedios === num && styles.numeroHorarioButtonActive
+                      ]}
+                      onPress={() => setOpcionesGeneracion(prev => ({...prev, huecosIntermedios: num}))}
+                    >
+                      <Text style={[
+                        styles.numeroHorarioButtonText,
+                        opcionesGeneracion.huecosIntermedios === num && styles.numeroHorarioButtonTextActive
+                      ]}>
+                        {num === -1 ? 'Infinito' : num}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
 
-              {/* Número de horarios a generar */}
-              <View style={styles.opcionItemTitulo}>
-                <Text style={styles.opcionLabel}>Número de horarios a generar</Text>
-              </View>
-              <View style={styles.numeroHorariosContainer}>
-                {[3, 5, 10, 15].map(num => (
-                  <Pressable
-                    key={num}
-                    style={[
-                      styles.numeroHorarioButton,
-                      opcionesGeneracion.numeroHorarios === num && styles.numeroHorarioButtonActive
-                    ]}
-                    onPress={() => setOpcionesGeneracion(prev => ({...prev, numeroHorarios: num}))}
-                  >
-                    <Text style={[
-                      styles.numeroHorarioButtonText,
-                      opcionesGeneracion.numeroHorarios === num && styles.numeroHorarioButtonTextActive
-                    ]}>
-                      {num}
+              {/* ============== SECCIÓN: ORDEN DE LOS GRUPOS ============== */}
+              <View style={styles.seccionContainer}>
+                <Text style={styles.seccionTitle}>Orden de los grupos</Text>
+                <Text style={styles.seccionInstruccion}>
+                  Define cómo se ordenarán los grupos al generar horarios
+                </Text>
+
+                {/* Prioridad por Hora */}
+                <View style={styles.opcionItemTitulo}>
+                  <View style={styles.opcionLabelContainer}>
+                    <Text style={styles.opcionLabel}>Por Horario:</Text>
+                    <Pressable
+                      style={styles.tooltipIconButton}
+                      onPress={() => setTooltipVisible(tooltipVisible === 'prioridadHora' ? null : 'prioridadHora')}
+                    >
+                      <Text style={styles.tooltipIcon}>?</Text>
+                    </Pressable>
+                  </View>
+                  {tooltipVisible === 'prioridadHora' && (
+                    <Text style={styles.tooltipText}>
+                      Controla la preferencia de horario al generar combinaciones. Valores más altos dan mayor prioridad.
                     </Text>
-                  </Pressable>
-                ))}
+                  )}
+                </View>
+                <View style={styles.prioridadOpcionesContainer}>
+                  {[
+                    { value: 2, label: 'Tarde', sublabel: 'Prioridad alta', icon: require('../../assets/images/moon.svg') },
+                    { value: 1, label: 'Tarde', sublabel: 'Prioridad baja', icon: require('../../assets/images/cloud-moon.svg') },
+                    { value: 0, label: 'Sin orden', sublabel: '', icon: require('../../assets/images/cloud.svg') },
+                    { value: -1, label: 'Temprano', sublabel: 'Prioridad baja', icon: require('../../assets/images/cloud-sun.svg') },
+                    { value: -2, label: 'Temprano', sublabel: 'Prioridad alta', icon: require('../../assets/images/sun.svg') },
+                  ].map(option => (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.prioridadOpcionButton,
+                        opcionesGeneracion.prioridadHora === option.value && styles.prioridadOpcionButtonActive
+                      ]}
+                      onPress={() => setOpcionesGeneracion(prev => ({...prev, prioridadHora: option.value}))}
+                    >
+                      <View style={styles.prioridadOpcionContent}>
+                        <Image 
+                          source={option.icon}
+                          style={styles.prioridadOpcionIcon}
+                          contentFit="contain"
+                        />
+                        <View style={styles.prioridadOpcionTexts}>
+                          <Text style={[
+                            styles.prioridadOpcionLabel,
+                            opcionesGeneracion.prioridadHora === option.value && styles.prioridadOpcionLabelActive
+                          ]}>
+                            {option.label}
+                          </Text>
+                          {option.sublabel !== '' && (
+                            <Text style={[
+                              styles.prioridadOpcionSublabel,
+                              opcionesGeneracion.prioridadHora === option.value && styles.prioridadOpcionSublabelActive
+                            ]}>
+                              {option.sublabel}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Prioridad por Demanda */}
+                <View style={styles.opcionItemTitulo}>
+                  <View style={styles.opcionLabelContainer}>
+                    <Text style={styles.opcionLabel}>Por Disponibilidad:</Text>
+                    <Pressable
+                      style={styles.tooltipIconButton}
+                      onPress={() => setTooltipVisible(tooltipVisible === 'prioridadDemanda' ? null : 'prioridadDemanda')}
+                    >
+                      <Text style={styles.tooltipIcon}>?</Text>
+                    </Pressable>
+                  </View>
+                  {tooltipVisible === 'prioridadDemanda' && (
+                    <Text style={styles.tooltipText}>
+                      Controla la preferencia basada en cuántos lugares libres tiene cada grupo. Valores más altos dan mayor prioridad.
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.prioridadOpcionesContainer}>
+                  {[
+                    { value: 2, label: 'Más llenos', sublabel: 'Prioridad alta', icon: require('../../assets/images/graph-up.svg') },
+                    { value: 1, label: 'Más llenos', sublabel: 'Prioridad baja', icon: require('../../assets/images/graph-up.svg') },
+                    { value: 0, label: 'Sin orden', sublabel: '', icon: require('../../assets/images/graph.svg') },
+                    { value: -1, label: 'Más vacíos', sublabel: 'Prioridad baja', icon: require('../../assets/images/graph-down.svg') },
+                    { value: -2, label: 'Más vacíos', sublabel: 'Prioridad alta', icon: require('../../assets/images/graph-down.svg') },
+                  ].map(option => (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.prioridadOpcionButton,
+                        opcionesGeneracion.prioridadDemanda === option.value && styles.prioridadOpcionButtonActive
+                      ]}
+                      onPress={() => setOpcionesGeneracion(prev => ({...prev, prioridadDemanda: option.value}))}
+                    >
+                      <View style={styles.prioridadOpcionContent}>
+                        <Image 
+                          source={option.icon}
+                          style={styles.prioridadOpcionIcon}
+                          contentFit="contain"
+                        />
+                        <View style={styles.prioridadOpcionTexts}>
+                          <Text style={[
+                            styles.prioridadOpcionLabel,
+                            opcionesGeneracion.prioridadDemanda === option.value && styles.prioridadOpcionLabelActive
+                          ]}>
+                            {option.label}
+                          </Text>
+                          {option.sublabel !== '' && (
+                            <Text style={[
+                              styles.prioridadOpcionSublabel,
+                              opcionesGeneracion.prioridadDemanda === option.value && styles.prioridadOpcionSublabelActive
+                            ]}>
+                              {option.sublabel}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             </ScrollView>
 
@@ -704,15 +959,46 @@ export default function OptionSidebarView({ onClose }) {
             <View style={styles.modalOpcionesButtons}>
               <Pressable 
                 style={styles.modalOpcionesButtonPrimary}
-                onPress={() => {
-                  console.log('Generando horarios con opciones:', opcionesGeneracion);
-                  console.log('Materias para generar:', materiasAnadidas);
-                  setModalOpcionesVisible(false);
-                  // Aquí irá la lógica de generación de horarios
-                  alert('Funcionalidad de generación de horarios en desarrollo');
+                onPress={async () => {
+                  // Cargar horarios no disponibles desde AsyncStorage
+                  try {
+                    const disabledCells = await AsyncStorage.getItem('disabledScheduleCells');
+                    const horariosNoDisponibles = disabledCells ? JSON.parse(disabledCells) : {};
+                    
+                    // Preparar datos para enviar
+                    const datosGeneracion = {
+                      opciones: opcionesGeneracion,
+                      materias: materiasAnadidas,
+                      horariosNoDisponibles: horariosNoDisponibles,
+                      centroUniversitario: userData.centroUniversitario,
+                      calendario: userData.calendario,
+                      carrera: userData.carrera,
+                    };
+                    
+                    console.log('=== DATOS PARA GENERAR HORARIOS ===');
+                    console.log('Opciones de generación:', opcionesGeneracion);
+                    console.log('Materias añadidas:', materiasAnadidas);
+                    console.log('Horarios NO disponibles:', horariosNoDisponibles);
+                    console.log('Datos completos:', datosGeneracion);
+                    console.log('===================================');
+                    
+                    setModalOpcionesVisible(false);
+                    // Aquí irá la lógica de generación de horarios
+                    alert('Datos enviados a consola. Revisa la consola para ver la información.');
+                  } catch (error) {
+                    console.error('Error al cargar horarios no disponibles:', error);
+                    alert('Error al cargar configuración de horarios');
+                  }
                 }}
               >
-                <Text style={styles.modalOpcionesButtonTextPrimary}>Generar Horario</Text>
+                <View style={styles.buttonContent}>
+                  <Image 
+                    source={require('../../assets/images/calendar-search.svg')}
+                    style={styles.modalOpcionesButtonIcon}
+                    contentFit="contain"
+                  />
+                  <Text style={styles.modalOpcionesButtonTextPrimary}>Generar Horario</Text>
+                </View>
               </Pressable>
               
               <View style={{height: 10}} />
@@ -973,6 +1259,11 @@ const styles = StyleSheet.create({
     width: "100%",
     marginBottom: 10,
   },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   // Estilos para materias añadidas
   materiasAnadidasContainer: {
     width: "100%",
@@ -989,16 +1280,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  materiasAnadidasTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-  },
   limpiarTodoButton: {
     backgroundColor: "#ff6b6b",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  limpiarTodoButtonIcon: {
+    width: 14,
+    height: 14,
+    tintColor: "#fff",
   },
   limpiarTodoButtonText: {
     color: "#fff",
@@ -1066,6 +1359,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#ff4444",
     justifyContent: "center",
     alignItems: "center",
+  },
+  deleteButtonIcon: {
+    width: 16,
+    height: 16,
+    tintColor: "#fff",
   },
   deleteButtonText: {
     color: "#fff",
@@ -1135,6 +1433,28 @@ const styles = StyleSheet.create({
     color: "#999",
     fontStyle: "italic",
   },
+  // Estilos para el botón Preferencias Horarios (móvil)
+  preferenciasHorariosContainer: {
+    width: "100%",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  preferenciasHorariosButton: {
+    backgroundColor: "#FF9800",
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  preferenciasHorariosButtonIcon: {
+    width: 21,
+    height: 21,
+  },
+  preferenciasHorariosButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
   // Estilos para botones de generación
   generarHorarioContainer: {
     flexDirection: "row",
@@ -1150,6 +1470,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+  },
+  generarHorarioButtonIcon: {
+    width: 20,
+    height: 20,
+    tintColor: "#fff",
   },
   generarHorarioButtonDisabled: {
     flex: 1,
@@ -1172,7 +1497,7 @@ const styles = StyleSheet.create({
   // Estilos para modal de opciones
   modalOpcionesContainer: {
     width: '90%',
-    maxWidth: 450,
+    maxWidth: 500,
     maxHeight: '85%',
     backgroundColor: "white",
     borderRadius: 12,
@@ -1187,17 +1512,43 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalOpcionesTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
     marginBottom: 20,
     color: "#333",
     textAlign: "center",
   },
+  seccionContainer: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  seccionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: PRIMARY_COLOR,
+    marginBottom: 12,
+    textAlign: "left",
+  },
+  seccionInstruccion: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 8,
+    fontStyle: "italic",
+  },
   opcionItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   opcionItemTitulo: {
     marginBottom: 12,
@@ -1206,15 +1557,46 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
+  opcionLabelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   opcionLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 4,
+    flex: 1,
   },
   opcionDescripcion: {
     fontSize: 13,
     color: "#666",
+  },
+  tooltipIconButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: PRIMARY_COLOR,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#0056b3",
+  },
+  tooltipIcon: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  tooltipText: {
+    fontSize: 12,
+    color: "#555",
+    backgroundColor: "#fffbe6",
+    padding: 10,
+    marginTop: 8,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: "#FF9800",
+    lineHeight: 18,
   },
   toggleButton: {
     width: 50,
@@ -1235,57 +1617,114 @@ const styles = StyleSheet.create({
     height: 30,
     tintColor: "#fff",
   },
-  horarioPreferidoContainer: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 20,
-  },
-  horarioPreferidoButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#ddd",
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-  },
-  horarioPreferidoButtonActive: {
-    backgroundColor: PRIMARY_COLOR,
-    borderColor: "#0056b3",
-  },
-  horarioPreferidoButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#666",
-  },
-  horarioPreferidoButtonTextActive: {
-    color: "#fff",
-  },
   numeroHorariosContainer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   numeroHorarioButton: {
     flex: 1,
+    minWidth: 60,
     padding: 12,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: "#ddd",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
     alignItems: "center",
   },
   numeroHorarioButtonActive: {
-    backgroundColor: "#FF9800",
-    borderColor: "#F57C00",
+    backgroundColor: PRIMARY_COLOR,
+    borderColor: "#0056b3",
   },
   numeroHorarioButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#666",
   },
   numeroHorarioButtonTextActive: {
     color: "#fff",
+  },
+  prioridadContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  prioridadButton: {
+    flex: 1,
+    minWidth: 50,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#ddd",
+    backgroundColor: "#fff",
+    alignItems: "center",
+  },
+  prioridadButtonActive: {
+    backgroundColor: "#FF9800",
+    borderColor: "#F57C00",
+  },
+  prioridadButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+  },
+  prioridadButtonTextActive: {
+    color: "#fff",
+  },
+  prioridadOpcionesContainer: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  prioridadOpcionButton: {
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#ddd",
+    backgroundColor: "#fff",
+  },
+  prioridadOpcionButtonActive: {
+    backgroundColor: "#FF9800",
+    borderColor: "#F57C00",
+    shadowColor: "#FF9800",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  prioridadOpcionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  prioridadOpcionIcon: {
+    width: 24,
+    height: 24,
+  },
+  prioridadOpcionTexts: {
+    flex: 1,
+  },
+  prioridadOpcionLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 2,
+  },
+  prioridadOpcionLabelActive: {
+    color: "#fff",
+  },
+  prioridadOpcionSublabel: {
+    fontSize: 11,
+    color: "#999",
+    fontStyle: "italic",
+  },
+  prioridadOpcionSublabelActive: {
+    color: "#fff",
+    opacity: 0.9,
   },
   modalOpcionesButtons: {
     marginTop: 15,
@@ -1401,6 +1840,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  anadirMateriaButtonIcon: {
+    width: 20,
+    height: 20,
+    tintColor: "#fff",
+  },
   anadirMateriaButtonText: {
     color: "#fff",
     fontSize: 16,
@@ -1413,6 +1857,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+  },
+  modalOpcionesButtonIcon: {
+    width: 20,
+    height: 20,
+    tintColor: "#fff",
   },
   modalOpcionesButtonSecondary: {
     backgroundColor: "#888",
