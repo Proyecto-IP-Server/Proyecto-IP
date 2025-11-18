@@ -17,11 +17,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useUserData } from "../../hooks/useUserData";
 import { API_BASE_URL } from "../../config/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
 
 export default function OptionSidebarView({ onClose }) {
+  const router = useRouter()
   const insets = useSafeAreaInsets();
 
   const [materias, setMaterias] = useState([]);
@@ -984,7 +986,7 @@ export default function OptionSidebarView({ onClose }) {
                     
                     setModalOpcionesVisible(false);
                     // Aquí irá la lógica de generación de horarios
-                    alert('Datos enviados a consola. Revisa la consola para ver la información.');
+                    alert('Motor de generacion en desarrollo. Datos enviados a la consola.');
                   } catch (error) {
                     console.error('Error al cargar horarios no disponibles:', error);
                     alert('Error al cargar configuración de horarios');
@@ -1001,15 +1003,27 @@ export default function OptionSidebarView({ onClose }) {
                 </View>
               </Pressable>
               
+
               <View style={{height: 10}} />
-              
               <Pressable 
                 style={styles.modalOpcionesButtonSecondary}
                 onPress={() => setModalOpcionesVisible(false)}
               >
                 <Text style={styles.modalOpcionesButtonTextSecondary}>Cancelar</Text>
               </Pressable>
+              
+              <View/>
+              <View style={{alignItems: 'center', marginTop: 10}}> 
+
+                <Pressable 
+                  onPress={() => router.push('/Tabs/GeneratedScheduleView')}
+                >
+                  <Text style={{color: 'red', backgroundColor: 'cyan'}}>MANDAR A CHINA WIII!!</Text>
+                </Pressable>
+            
+              </View>
             </View>
+            
       </BlurModal>
 
       {/* EL POP-UP */}
@@ -1069,7 +1083,7 @@ export default function OptionSidebarView({ onClose }) {
                     setSelectedMateria(item.value);
                     fetchSecciones(item.value);
                   }}
-                  autoScroll={false}
+                  
                   dropdownPosition="auto"
                   flatListProps={{
                     nestedScrollEnabled: true,

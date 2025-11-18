@@ -8,9 +8,6 @@ import { useUserData } from "../../hooks/useUserData";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityIndicator } from "react-native-web";
 
-const { width } = Dimensions.get('window');
-const isMobile = width < 768;
-
 export default function Home() {
   const router = useRouter()
   const insets = useSafeAreaInsets();
@@ -19,6 +16,22 @@ export default function Home() {
   const [isResizing, setIsResizing] = useState(false);
   const { userData, loading } = useUserData();
   
+  // Estado para dimensiones de pantalla (para responsividad en tiempo real)
+  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+  const isMobileScreen = screenWidth < 768;
+
+  // Listener para cambios de tamaño de pantalla (responsividad en tiempo real)
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenWidth(window.width);
+      // Si cambia a móvil y el sidebar está cerrado, abrirlo
+      if (window.width < 768 && !activOptionSidebar) {
+        setActivOptionSidebar(true);
+      }
+    });
+
+    return () => subscription?.remove();
+  }, [activOptionSidebar]);
 
   // Verificar que el usuario haya completado el login
   useEffect(() => {
@@ -32,7 +45,7 @@ export default function Home() {
 
   // Manejar resize del sidebar en escritorio
   const handleMouseDown = (e) => {
-    if (!isMobile) {
+    if (!isMobileScreen) {
       setIsResizing(true);
       e.preventDefault();
     }
@@ -43,7 +56,7 @@ export default function Home() {
     if (Platform.OS !== 'web') return;
 
     const handleMouseMove = (e) => {
-      if (isResizing && !isMobile) {
+      if (isResizing && !isMobileScreen) {
         const newWidth = (e.clientX / window.innerWidth) * 100;
         if (newWidth >= 15 && newWidth <= 50) {
           setSidebarWidth(newWidth);
@@ -64,7 +77,7 @@ export default function Home() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing]);
+  }, [isResizing, isMobileScreen]);
 
 
   return (
@@ -75,7 +88,7 @@ export default function Home() {
         { paddingTop: insets.top + 5 }
       ]}>
         {/* Botón de regresar - Solo visible en desktop o cuando sidebar está abierto en móvil */}
-        {(!isMobile || activOptionSidebar) && (
+        {(!isMobileScreen || activOptionSidebar) && (
           <Pressable 
             style={styles.regresarButton}
             onPress={() => router.push('/')}
@@ -90,7 +103,7 @@ export default function Home() {
         )}
         
         {/* Botón de opciones - Solo visible en desktop */}
-        {!isMobile && (
+        {!isMobileScreen && (
           <View style={{marginRight:10}}>
             <Pressable 
               onPress={()=> {
@@ -104,7 +117,7 @@ export default function Home() {
         )}
 
         {/* Botón de regreso a opciones - Solo visible en móvil cuando sidebar está cerrado */}
-        {isMobile && !activOptionSidebar && (
+        {isMobileScreen && !activOptionSidebar && (
           <Pressable 
             style={styles.volverOpcionesButton}
             onPress={() => setActivOptionSidebar(true)}
@@ -125,14 +138,14 @@ export default function Home() {
         {activOptionSidebar && (
           <>
             <View style={[
-              isMobile ? styles.sidebarMobile : styles.sidebarDesktop,
-              !isMobile && { width: `${sidebarWidth}%` }
+              isMobileScreen ? styles.sidebarMobile : styles.sidebarDesktop,
+              !isMobileScreen && { width: `${sidebarWidth}%` }
             ]}>
               <OptionSidebarView onClose={() => setActivOptionSidebar(false)} />              
             </View>
             
             {/* Borde redimensionable solo en escritorio */}
-            {!isMobile && (
+            {!isMobileScreen && (
               <View 
                 style={styles.resizeHandle}
                 onMouseDown={handleMouseDown}
@@ -144,10 +157,10 @@ export default function Home() {
         )}
         
         {/* WeeklySchedule - Solo visible cuando sidebar está cerrado en móvil */}
-        {(!isMobile || !activOptionSidebar) && (
+        {(!isMobileScreen || !activOptionSidebar) && (
           <View style={[
             styles.scheduleContainer,
-            { width: (!isMobile && activOptionSidebar) ? `${100 - sidebarWidth}%` : '100%' }
+            { width: (!isMobileScreen && activOptionSidebar) ? `${100 - sidebarWidth}%` : '100%' }
           ]}>
             {loading ? (
               <View style={styles.loadingContainer}>

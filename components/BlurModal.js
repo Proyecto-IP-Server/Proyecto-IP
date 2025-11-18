@@ -55,6 +55,8 @@ export default function BlurModal({
             visible={visible}
             animationType="fade"
             onRequestClose={onClose}
+            hardwareAccelerated={true}
+            presentationStyle="overFullScreen"
         >
             <View style={[
                 styles.modalOverlay,
@@ -62,6 +64,7 @@ export default function BlurModal({
             ]}>
                 <Animated.View
                     style={[
+                        styles.modalContent,
                         containerStyle,
                         {
                             transform: [{ translateY: slideAnim }],
@@ -80,5 +83,11 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
+        zIndex: 9999,
+        elevation: 10,
+    },
+    modalContent: {
+        elevation: 20,
+        zIndex: 10000,
     },
 });
