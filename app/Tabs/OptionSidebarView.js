@@ -8,8 +8,8 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Image } from 'expo-image';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 import TextTitle from "../../components/TextTitle";
 import BlurModal from "../../components/BlurModal";
 import { Dropdown } from "react-native-element-dropdown";
@@ -17,13 +17,27 @@ import { useEffect, useState, useCallback } from "react";
 import { useUserData } from "../../hooks/useUserData";
 import { API_BASE_URL } from "../../config/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from 'expo-router';
+import { useRouter } from "expo-router";
+import { generateSchedules } from "../../utils/ScheduleGenerator";
 
-const { width } = Dimensions.get('window');
+// Utilidad para transformar celdas bloqueadas a formato Horario.fromData
+function mapDisabledCellsToHorarioData(disabledCellsArray) {
+  // disabledCellsArray: [{ dia: 1-6, hora: "HH:MM:SS.mmmmmm" }]
+  return disabledCellsArray.map(cell => {
+    const dia_semana = (cell.dia || 1) - 1; // Lunes=1 → 0
+    const hora_inicio = cell.hora ? cell.hora.substring(0, 5) : "07:00";
+    // Asume bloqueos de 1 hora
+    const startHour = parseInt(hora_inicio.split(':')[0]);
+    const hora_fin = `${(startHour + 1).toString().padStart(2, '0')}:00`;
+    return { dia_semana, hora_inicio, hora_fin };
+  });
+}
+
+const { width } = Dimensions.get("window");
 const isMobile = width < 768;
 
 export default function OptionSidebarView({ onClose }) {
-  const router = useRouter()
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [materias, setMaterias] = useState([]);
@@ -34,17 +48,18 @@ export default function OptionSidebarView({ onClose }) {
   //const [maestroValues, setMaestroValues] = useState([]);
   //const [horarioValues, setHorarioValues] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
-  
+
   // Estados para el modal
   const [selectedMateria, setSelectedMateria] = useState(null);
   const [profesorPreferences, setProfesorPreferences] = useState({});
   const [loadingSecciones, setLoadingSecciones] = useState(false);
   const [loadingMaterias, setLoadingMaterias] = useState(false);
-  
+  const [loadingGeneracion, setLoadingGeneracion] = useState(false);
+
   // Estado para guardar las materias añadidas
   const [materiasAnadidas, setMateriasAnadidas] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
-  
+
   // Estado para el modal de opciones de generación
   const [modalOpcionesVisible, setModalOpcionesVisible] = useState(false);
   const [opcionesGeneracion, setOpcionesGeneracion] = useState({
@@ -58,17 +73,17 @@ export default function OptionSidebarView({ onClose }) {
     prioridadHora: 0,
     prioridadDemanda: 0,
   });
-  
+
   // Estado para mostrar tooltips
-  const [tooltipVisible, setTooltipVisible] = useState(null);  // Estado para búsqueda de profesores
-  const [searchProfesor, setSearchProfesor] = useState('');
-  
+  const [tooltipVisible, setTooltipVisible] = useState(null); // Estado para búsqueda de profesores
+  const [searchProfesor, setSearchProfesor] = useState("");
+
   // Estados para modales de confirmación
   const [modalConfirmarEliminar, setModalConfirmarEliminar] = useState(false);
   const [modalConfirmarLimpiar, setModalConfirmarLimpiar] = useState(false);
   const [materiaAEliminar, setMateriaAEliminar] = useState(null);
   const [modalCambioCiclo, setModalCambioCiclo] = useState(false);
-  const [cicloAnterior, setCicloAnterior] = useState('');
+  const [cicloAnterior, setCicloAnterior] = useState("");
 
   const { userData, loading } = useUserData();
 
@@ -80,23 +95,26 @@ export default function OptionSidebarView({ onClose }) {
   // Función para cargar las materias guardadas
   const loadMateriasAnadidas = async () => {
     try {
-      const materiasGuardadas = await AsyncStorage.getItem('materiasAnadidas');
+      const materiasGuardadas = await AsyncStorage.getItem("materiasAnadidas");
       if (materiasGuardadas) {
         setMateriasAnadidas(JSON.parse(materiasGuardadas));
-        console.log('Materias cargadas desde AsyncStorage:', JSON.parse(materiasGuardadas));
+        console.log(
+          "Materias cargadas desde AsyncStorage:",
+          JSON.parse(materiasGuardadas)
+        );
       }
     } catch (error) {
-      console.error('Error al cargar materias añadidas:', error);
+      console.error("Error al cargar materias añadidas:", error);
     }
   };
 
   // Función para guardar las materias en AsyncStorage
   const saveMateriasAnadidas = async (materias) => {
     try {
-      await AsyncStorage.setItem('materiasAnadidas', JSON.stringify(materias));
-      console.log('Materias guardadas en AsyncStorage:', materias);
+      await AsyncStorage.setItem("materiasAnadidas", JSON.stringify(materias));
+      console.log("Materias guardadas en AsyncStorage:", materias);
     } catch (error) {
-      console.error('Error al guardar materias añadidas:', error);
+      console.error("Error al guardar materias añadidas:", error);
     }
   };
 
@@ -110,12 +128,12 @@ export default function OptionSidebarView({ onClose }) {
   // Función para confirmar limpiar todas las materias
   const confirmarLimpiarTodasLasMaterias = async () => {
     try {
-      await AsyncStorage.removeItem('materiasAnadidas');
-      await AsyncStorage.removeItem('cicloMaterias');
+      await AsyncStorage.removeItem("materiasAnadidas");
+      await AsyncStorage.removeItem("cicloMaterias");
       setMateriasAnadidas([]);
-      console.log('Todas las materias han sido eliminadas');
+      console.log("Todas las materias han sido eliminadas");
     } catch (error) {
-      console.error('Error al limpiar materias:', error);
+      console.error("Error al limpiar materias:", error);
     }
     setModalConfirmarLimpiar(false);
   };
@@ -123,24 +141,32 @@ export default function OptionSidebarView({ onClose }) {
   // Función para verificar si el ciclo cambió
   const verificarCambioCiclo = useCallback(async () => {
     if (!userData || !userData.calendario) return;
-    
+
     try {
-      const cicloGuardado = await AsyncStorage.getItem('cicloMaterias');
-      
-      console.log('Verificando ciclo - Guardado:', cicloGuardado, 'Actual:', userData.calendario);
-      
-      if (cicloGuardado && cicloGuardado.trim() !== userData.calendario.trim()) {
+      const cicloGuardado = await AsyncStorage.getItem("cicloMaterias");
+
+      console.log(
+        "Verificando ciclo - Guardado:",
+        cicloGuardado,
+        "Actual:",
+        userData.calendario
+      );
+
+      if (
+        cicloGuardado &&
+        cicloGuardado.trim() !== userData.calendario.trim()
+      ) {
         // El ciclo cambió - mostrar modal personalizado
-        console.log('¡Ciclo diferente detectado!');
+        console.log("¡Ciclo diferente detectado!");
         setCicloAnterior(cicloGuardado);
         setModalCambioCiclo(true);
       } else if (!cicloGuardado && materiasAnadidas.length > 0) {
         // No hay ciclo guardado pero hay materias, guardar el ciclo actual
-        console.log('Guardando ciclo actual:', userData.calendario);
-        await AsyncStorage.setItem('cicloMaterias', userData.calendario);
+        console.log("Guardando ciclo actual:", userData.calendario);
+        await AsyncStorage.setItem("cicloMaterias", userData.calendario);
       }
     } catch (error) {
-      console.error('Error al verificar cambio de ciclo:', error);
+      console.error("Error al verificar cambio de ciclo:", error);
     }
   }, [userData, materiasAnadidas.length]);
 
@@ -148,29 +174,29 @@ export default function OptionSidebarView({ onClose }) {
   const handleMantenerMaterias = async () => {
     try {
       // Actualizar el ciclo del usuario al ciclo de las materias guardadas
-      await AsyncStorage.setItem('calendario', cicloAnterior);
-      
+      await AsyncStorage.setItem("calendario", cicloAnterior);
+
       // Recargar la página para que se actualicen todos los datos con el ciclo anterior
-      if (typeof window !== 'undefined' && window.location) {
+      if (typeof window !== "undefined" && window.location) {
         window.location.reload();
       }
-      
+
       // Cerrar el modal
       setModalCambioCiclo(false);
     } catch (error) {
-      console.error('Error al mantener materias:', error);
+      console.error("Error al mantener materias:", error);
     }
   };
 
   // Función para limpiar materias por cambio de ciclo
   const handleLimpiarPorCambioCiclo = async () => {
     try {
-      await AsyncStorage.removeItem('materiasAnadidas');
-      await AsyncStorage.setItem('cicloMaterias', userData.calendario);
+      await AsyncStorage.removeItem("materiasAnadidas");
+      await AsyncStorage.setItem("cicloMaterias", userData.calendario);
       setMateriasAnadidas([]);
       setModalCambioCiclo(false);
     } catch (error) {
-      console.error('Error al limpiar materias:', error);
+      console.error("Error al limpiar materias:", error);
     }
   };
 
@@ -245,30 +271,42 @@ export default function OptionSidebarView({ onClose }) {
   }
 ]
     */
-
+  const fetchSeccionesData = async (materia) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/materia/${userData.centroUniversitario}/${materia}/${userData.calendario}/secciones`
+      );
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error al obtener las secciones:", error);
+    }
+  }
+  
   const fetchSecciones = async (materia) => {
-    //materia/IL2020/2025B/secciones
+    //materia/CUCEI/IL2020/2025B/secciones
     try {
       setLoadingSecciones(true);
       const response = await fetch(
-        `${API_BASE_URL}/materia/${materia}/${userData.calendario}/secciones`
+        `${API_BASE_URL}/materia/${userData.centroUniversitario}/${materia}/${userData.calendario}/secciones`
       );
       const data = await response.json();
       setSecciones(data);
-      
+
       // Extraer profesores únicos y ordenarlos alfabéticamente
-      const profesoresUnicos = [...new Set(data.map(seccion => seccion.profesor))].sort((a, b) => a.localeCompare(b));
+      const profesoresUnicos = [
+        ...new Set(data.map((seccion) => seccion.profesor)),
+      ].sort((a, b) => a.localeCompare(b));
       setProfesores(profesoresUnicos);
-      
+
       // Inicializar preferencias si es nueva materia
       if (editingIndex === null) {
         const initialPreferences = {};
-        profesoresUnicos.forEach(profesor => {
+        profesoresUnicos.forEach((profesor) => {
           initialPreferences[profesor] = 0; // 0 = neutral por defecto
         });
         setProfesorPreferences(initialPreferences);
       }
-      
     } catch (error) {
       console.error("Error al obtener las secciones:", error);
     } finally {
@@ -278,9 +316,9 @@ export default function OptionSidebarView({ onClose }) {
 
   // Función para manejar la selección de preferencia de profesor
   const handleProfesorPreference = (profesor, preference) => {
-    setProfesorPreferences(prev => ({
+    setProfesorPreferences((prev) => ({
       ...prev,
-      [profesor]: prev[profesor] === preference ? 0 : preference
+      [profesor]: prev[profesor] === preference ? 0 : preference,
     }));
   };
 
@@ -290,13 +328,14 @@ export default function OptionSidebarView({ onClose }) {
 
     const materiaData = {
       clave: selectedMateria,
-      nombreMateria: materias.find(m => m.value === selectedMateria)?.label || '',
-      profesores: profesorPreferences
+      nombreMateria:
+        materias.find((m) => m.value === selectedMateria)?.label || "",
+      profesores: profesorPreferences,
     };
-    
+
     // Guardar el ciclo actual cuando se añade la primera materia
     if (materiasAnadidas.length === 0) {
-      await AsyncStorage.setItem('cicloMaterias', userData.calendario);
+      await AsyncStorage.setItem("cicloMaterias", userData.calendario);
     }
 
     if (editingIndex !== null) {
@@ -307,13 +346,17 @@ export default function OptionSidebarView({ onClose }) {
       setEditingIndex(null);
     } else {
       // Verificar si la materia ya existe
-      const materiaExiste = materiasAnadidas.some(m => m.clave === selectedMateria);
-      
+      const materiaExiste = materiasAnadidas.some(
+        (m) => m.clave === selectedMateria
+      );
+
       if (materiaExiste) {
-        alert('Esta materia ya ha sido añadida. Puedes editarla desde la lista.');
+        alert(
+          "Esta materia ya ha sido añadida. Puedes editarla desde la lista."
+        );
         return;
       }
-      
+
       // Añadir nueva materia
       setMateriasAnadidas([...materiasAnadidas, materiaData]);
     }
@@ -330,7 +373,7 @@ export default function OptionSidebarView({ onClose }) {
     setProfesorPreferences({});
     setSecciones([]);
     setEditingIndex(null);
-    setSearchProfesor('');
+    setSearchProfesor("");
   };
 
   // Función para abrir el modal en modo edición
@@ -348,11 +391,13 @@ export default function OptionSidebarView({ onClose }) {
     setMateriaAEliminar(index);
     setModalConfirmarEliminar(true);
   };
-  
+
   // Función para confirmar eliminación de materia
   const confirmarEliminarMateria = () => {
     if (materiaAEliminar !== null) {
-      const nuevasMateriasAnadidas = materiasAnadidas.filter((_, i) => i !== materiaAEliminar);
+      const nuevasMateriasAnadidas = materiasAnadidas.filter(
+        (_, i) => i !== materiaAEliminar
+      );
       setMateriasAnadidas(nuevasMateriasAnadidas);
     }
     setModalConfirmarEliminar(false);
@@ -383,164 +428,182 @@ export default function OptionSidebarView({ onClose }) {
         {userData && (
           <View style={styles.contextoBanner}>
             <Text style={styles.contextoText}>
-              {userData.centroUniversitario} &gt; {userData.calendario} &gt; {userData.carrera}
+              {userData.centroUniversitario} &gt; {userData.calendario} &gt;{" "}
+              {userData.carrera}
             </Text>
           </View>
         )}
-        
+
         {/* Encabezado */}
-          <View style={styles.header}>
-            <TextTitle>Condiciones</TextTitle>
-          </View>
-          <View style={styles.buttonContainer}>
-            <Pressable
-              style={styles.anadirMateriaButton}
-              onPress={() => {
-                setModalVisible(true);
-              }}
-            >
-              <View style={styles.buttonContent}>
-                <Image 
-                  source={require('../../assets/images/add.svg')}
-                  style={styles.anadirMateriaButtonIcon}
-                  contentFit="contain"
-                />
-                <Text style={styles.anadirMateriaButtonText}>Añadir Materia</Text>
-              </View>
-            </Pressable>
-          </View>
-
-          {/* Materias añadidas */}
-          {materiasAnadidas.length > 0 && (
-            <View style={styles.materiasAnadidasContainer}>
-              <View style={styles.materiasAnadidasHeader}>
-                <Text style={styles.materiasAnadidasTitle}>Materias Añadidas:</Text>
-                <Pressable 
-                  style={styles.limpiarTodoButton}
-                  onPress={handleLimpiarTodasLasMaterias}
-                >
-                  <View style={styles.buttonContent}>
-                    <Image 
-                      source={require('../../assets/images/trash-bin.svg')}
-                      style={styles.limpiarTodoButtonIcon}
-                      contentFit="contain"
-                    />
-                    <Text style={styles.limpiarTodoButtonText}>Limpiar Todo</Text>
-                  </View>
-                </Pressable>
-              </View>
-              {materiasAnadidas.map((materia, index) => (
-                <View key={index} style={styles.materiaCard}>
-                  <Pressable 
-                    style={styles.materiaCardContent}
-                    onPress={() => handleEditMateria(index)}
-                  >
-                    <View style={styles.materiaInfo}>
-                      <Text style={styles.materiaCardTitle} numberOfLines={2}>
-                        {materia.nombreMateria}
-                      </Text>
-                      <Text style={styles.materiaCardSubtitle}>
-                        {Object.keys(materia.profesores).length} profesores seleccionados
-                      </Text>
-                      
-                      {/* Mostrar preferencias resumidas */}
-                      <View style={styles.preferenceSummary}>
-                        <View style={styles.preferenceSummaryItem}>
-                          <Image 
-                            source={require('../../assets/images/like_used.svg')}
-                            style={styles.preferenceSummaryIcon}
-                            contentFit="contain"
-                          />
-                          <Text style={styles.preferenceSummaryText}>
-                            {Object.values(materia.profesores).filter(p => p === 1).length}
-                          </Text>
-                        </View>
-                        <View style={styles.preferenceSummaryItem}>
-                          <Image 
-                            source={require('../../assets/images/dislike_used.svg')}
-                            style={styles.preferenceSummaryIcon}
-                            contentFit="contain"
-                          />
-                          <Text style={styles.preferenceSummaryText}>
-                            {Object.values(materia.profesores).filter(p => p === 2).length}
-                          </Text>
-                        </View>
-                        <View style={styles.preferenceSummaryItem}>
-                          <View style={styles.neutralCircle} />
-                          <Text style={styles.preferenceSummaryText}>
-                            {Object.values(materia.profesores).filter(p => p === 0).length}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                    
-                    <Pressable 
-                      style={styles.deleteButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleDeleteMateria(index);
-                      }}
-                    >
-                      <Image 
-                        source={require('../../assets/images/trash-bin.svg')}
-                        style={styles.deleteButtonIcon}
-                        contentFit="contain"
-                      />
-                    </Pressable>
-                  </Pressable>
-                </View>
-              ))}
+        <View style={styles.header}>
+          <TextTitle>Condiciones</TextTitle>
+        </View>
+        <View style={styles.buttonContainer}>
+          <Pressable
+            style={styles.anadirMateriaButton}
+            onPress={() => {
+              setModalVisible(true);
+            }}
+          >
+            <View style={styles.buttonContent}>
+              <Image
+                source={require("../../assets/images/add.svg")}
+                style={styles.anadirMateriaButtonIcon}
+                contentFit="contain"
+              />
+              <Text style={styles.anadirMateriaButtonText}>Añadir Materia</Text>
             </View>
-          )}
+          </Pressable>
+        </View>
 
-          {/* Botón Preferencias Horarios - Solo visible en móviles */}
-          {isMobile && (
-            <View style={styles.preferenciasHorariosContainer}>
-              <Pressable 
-                style={styles.preferenciasHorariosButton}
-                onPress={onClose}
+        {/* Materias añadidas */}
+        {materiasAnadidas.length > 0 && (
+          <View style={styles.materiasAnadidasContainer}>
+            <View style={styles.materiasAnadidasHeader}>
+              <Text style={styles.materiasAnadidasTitle}>
+                Materias Añadidas:
+              </Text>
+              <Pressable
+                style={styles.limpiarTodoButton}
+                onPress={handleLimpiarTodasLasMaterias}
               >
                 <View style={styles.buttonContent}>
-                  <Image 
-                    source={require('../../assets/images/alarm.svg')}
-                    style={styles.preferenciasHorariosButtonIcon}
+                  <Image
+                    source={require("../../assets/images/trash-bin.svg")}
+                    style={styles.limpiarTodoButtonIcon}
                     contentFit="contain"
                   />
-                  <Text style={styles.preferenciasHorariosButtonText}>
-                    Preferencias Horarios
-                  </Text>
+                  <Text style={styles.limpiarTodoButtonText}>Limpiar Todo</Text>
                 </View>
               </Pressable>
             </View>
-          )}
+            {materiasAnadidas.map((materia, index) => (
+              <View key={index} style={styles.materiaCard}>
+                <Pressable
+                  style={styles.materiaCardContent}
+                  onPress={() => handleEditMateria(index)}
+                >
+                  <View style={styles.materiaInfo}>
+                    <Text style={styles.materiaCardTitle} numberOfLines={2}>
+                      {materia.nombreMateria}
+                    </Text>
+                    <Text style={styles.materiaCardSubtitle}>
+                      {Object.keys(materia.profesores).length} profesores
+                      seleccionados
+                    </Text>
 
-          {/* Botones de generación de horario */}
-          <View style={styles.generarHorarioContainer}>
-            <Pressable 
-              style={
-                materiasAnadidas.length === 0 
-                  ? styles.generarHorarioButtonDisabled
-                  : styles.generarHorarioButton
-              }
-              onPress={() => setModalOpcionesVisible(true)}
-              disabled={materiasAnadidas.length === 0}
+                    {/* Mostrar preferencias resumidas */}
+                    <View style={styles.preferenceSummary}>
+                      <View style={styles.preferenceSummaryItem}>
+                        <Image
+                          source={require("../../assets/images/like_used.svg")}
+                          style={styles.preferenceSummaryIcon}
+                          contentFit="contain"
+                        />
+                        <Text style={styles.preferenceSummaryText}>
+                          {
+                            Object.values(materia.profesores).filter(
+                              (p) => p === 1
+                            ).length
+                          }
+                        </Text>
+                      </View>
+                      <View style={styles.preferenceSummaryItem}>
+                        <Image
+                          source={require("../../assets/images/dislike_used.svg")}
+                          style={styles.preferenceSummaryIcon}
+                          contentFit="contain"
+                        />
+                        <Text style={styles.preferenceSummaryText}>
+                          {
+                            Object.values(materia.profesores).filter(
+                              (p) => p === 2
+                            ).length
+                          }
+                        </Text>
+                      </View>
+                      <View style={styles.preferenceSummaryItem}>
+                        <View style={styles.neutralCircle} />
+                        <Text style={styles.preferenceSummaryText}>
+                          {
+                            Object.values(materia.profesores).filter(
+                              (p) => p === 0
+                            ).length
+                          }
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <Pressable
+                    style={styles.deleteButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteMateria(index);
+                    }}
+                  >
+                    <Image
+                      source={require("../../assets/images/trash-bin.svg")}
+                      style={styles.deleteButtonIcon}
+                      contentFit="contain"
+                    />
+                  </Pressable>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Botón Preferencias Horarios - Solo visible en móviles */}
+        {isMobile && (
+          <View style={styles.preferenciasHorariosContainer}>
+            <Pressable
+              style={styles.preferenciasHorariosButton}
+              onPress={onClose}
             >
               <View style={styles.buttonContent}>
-                <Image 
-                  source={require('../../assets/images/calendar-search.svg')}
-                  style={styles.generarHorarioButtonIcon}
+                <Image
+                  source={require("../../assets/images/alarm.svg")}
+                  style={styles.preferenciasHorariosButtonIcon}
                   contentFit="contain"
                 />
-                <Text style={
-                  materiasAnadidas.length === 0
-                    ? styles.generarHorarioButtonTextDisabled
-                    : styles.generarHorarioButtonText
-                }>
-                  Opciones de Generación
+                <Text style={styles.preferenciasHorariosButtonText}>
+                  Preferencias Horarios
                 </Text>
               </View>
             </Pressable>
           </View>
+        )}
+
+        {/* Botones de generación de horario */}
+        <View style={styles.generarHorarioContainer}>
+          <Pressable
+            style={
+              materiasAnadidas.length === 0
+                ? styles.generarHorarioButtonDisabled
+                : styles.generarHorarioButton
+            }
+            onPress={() => setModalOpcionesVisible(true)}
+            disabled={materiasAnadidas.length === 0}
+          >
+            <View style={styles.buttonContent}>
+              <Image
+                source={require("../../assets/images/calendar-search.svg")}
+                style={styles.generarHorarioButtonIcon}
+                contentFit="contain"
+              />
+              <Text
+                style={
+                  materiasAnadidas.length === 0
+                    ? styles.generarHorarioButtonTextDisabled
+                    : styles.generarHorarioButtonText
+                }
+              >
+                Opciones de Generación
+              </Text>
+            </View>
+          </Pressable>
+        </View>
       </ScrollView>
 
       {/* MODAL DE CONFIRMACIÓN - CAMBIO DE CICLO */}
@@ -549,29 +612,46 @@ export default function OptionSidebarView({ onClose }) {
         slideDistance={300}
         containerStyle={styles.modalConfirmacionContainer}
       >
-        <Text style={styles.modalConfirmacionTitle}>Cambio de ciclo detectado</Text>
-            <Text style={styles.modalConfirmacionText}>
-              Las materias guardadas son del ciclo <Text style={{fontWeight: 'bold'}}>{cicloAnterior}</Text>, pero ahora estás en el ciclo <Text style={{fontWeight: 'bold'}}>{userData?.calendario}</Text>.
+        <Text style={styles.modalConfirmacionTitle}>
+          Cambio de ciclo detectado
+        </Text>
+        <Text style={styles.modalConfirmacionText}>
+          Las materias guardadas son del ciclo{" "}
+          <Text style={{ fontWeight: "bold" }}>{cicloAnterior}</Text>, pero
+          ahora estás en el ciclo{" "}
+          <Text style={{ fontWeight: "bold" }}>{userData?.calendario}</Text>.
+        </Text>
+        <Text style={styles.modalConfirmacionSubtext}>
+          Si mantienes las materias, tu ciclo actual cambiará a{" "}
+          <Text style={{ fontWeight: "bold" }}>{cicloAnterior}</Text>. No puedes
+          tener materias de diferentes ciclos.
+        </Text>
+
+        <View style={styles.modalConfirmacionButtons}>
+          <Pressable
+            style={[
+              styles.modalConfirmacionButton,
+              styles.modalConfirmacionButtonCancel,
+            ]}
+            onPress={handleMantenerMaterias}
+          >
+            <Text style={styles.modalConfirmacionButtonTextCancel}>
+              Mantener
             </Text>
-            <Text style={styles.modalConfirmacionSubtext}>
-              Si mantienes las materias, tu ciclo actual cambiará a <Text style={{fontWeight: 'bold'}}>{cicloAnterior}</Text>. No puedes tener materias de diferentes ciclos.
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.modalConfirmacionButton,
+              styles.modalConfirmacionButtonConfirm,
+            ]}
+            onPress={handleLimpiarPorCambioCiclo}
+          >
+            <Text style={styles.modalConfirmacionButtonTextConfirm}>
+              Limpiar
             </Text>
-            
-            <View style={styles.modalConfirmacionButtons}>
-              <Pressable 
-                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonCancel]}
-                onPress={handleMantenerMaterias}
-              >
-                <Text style={styles.modalConfirmacionButtonTextCancel}>Mantener</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonConfirm]}
-                onPress={handleLimpiarPorCambioCiclo}
-              >
-                <Text style={styles.modalConfirmacionButtonTextConfirm}>Limpiar</Text>
-              </Pressable>
-            </View>
+          </Pressable>
+        </View>
       </BlurModal>
 
       {/* MODAL DE CONFIRMACIÓN - ELIMINAR MATERIA */}
@@ -581,31 +661,43 @@ export default function OptionSidebarView({ onClose }) {
         containerStyle={styles.modalConfirmacionContainer}
       >
         <Text style={styles.modalConfirmacionTitle}>¿Eliminar materia?</Text>
-            <Text style={styles.modalConfirmacionText}>
-              {materiaAEliminar !== null && materiasAnadidas[materiaAEliminar] && 
-                `¿Estás seguro de que deseas eliminar "${materiasAnadidas[materiaAEliminar].nombreMateria}"?`
-              }
+        <Text style={styles.modalConfirmacionText}>
+          {materiaAEliminar !== null &&
+            materiasAnadidas[materiaAEliminar] &&
+            `¿Estás seguro de que deseas eliminar "${materiasAnadidas[materiaAEliminar].nombreMateria}"?`}
+        </Text>
+        <Text style={styles.modalConfirmacionSubtext}>
+          Esta acción no se puede deshacer.
+        </Text>
+
+        <View style={styles.modalConfirmacionButtons}>
+          <Pressable
+            style={[
+              styles.modalConfirmacionButton,
+              styles.modalConfirmacionButtonCancel,
+            ]}
+            onPress={() => {
+              setModalConfirmarEliminar(false);
+              setMateriaAEliminar(null);
+            }}
+          >
+            <Text style={styles.modalConfirmacionButtonTextCancel}>
+              Cancelar
             </Text>
-            <Text style={styles.modalConfirmacionSubtext}>Esta acción no se puede deshacer.</Text>
-            
-            <View style={styles.modalConfirmacionButtons}>
-              <Pressable 
-                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonCancel]}
-                onPress={() => {
-                  setModalConfirmarEliminar(false);
-                  setMateriaAEliminar(null);
-                }}
-              >
-                <Text style={styles.modalConfirmacionButtonTextCancel}>Cancelar</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonConfirm]}
-                onPress={confirmarEliminarMateria}
-              >
-                <Text style={styles.modalConfirmacionButtonTextConfirm}>Eliminar</Text>
-              </Pressable>
-            </View>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.modalConfirmacionButton,
+              styles.modalConfirmacionButtonConfirm,
+            ]}
+            onPress={confirmarEliminarMateria}
+          >
+            <Text style={styles.modalConfirmacionButtonTextConfirm}>
+              Eliminar
+            </Text>
+          </Pressable>
+        </View>
       </BlurModal>
 
       {/* MODAL DE CONFIRMACIÓN - LIMPIAR TODO */}
@@ -614,29 +706,43 @@ export default function OptionSidebarView({ onClose }) {
         slideDistance={300}
         containerStyle={styles.modalConfirmacionContainer}
       >
-        <Text style={styles.modalConfirmacionTitle}>¿Limpiar todas las materias?</Text>
-            <Text style={styles.modalConfirmacionText}>
-              ¿Estás seguro de que deseas eliminar todas las materias añadidas?
+        <Text style={styles.modalConfirmacionTitle}>
+          ¿Limpiar todas las materias?
+        </Text>
+        <Text style={styles.modalConfirmacionText}>
+          ¿Estás seguro de que deseas eliminar todas las materias añadidas?
+        </Text>
+        <Text style={styles.modalConfirmacionSubtext}>
+          Se eliminarán {materiasAnadidas.length}{" "}
+          {materiasAnadidas.length === 1 ? "materia" : "materias"}. Esta acción
+          no se puede deshacer.
+        </Text>
+
+        <View style={styles.modalConfirmacionButtons}>
+          <Pressable
+            style={[
+              styles.modalConfirmacionButton,
+              styles.modalConfirmacionButtonCancel,
+            ]}
+            onPress={() => setModalConfirmarLimpiar(false)}
+          >
+            <Text style={styles.modalConfirmacionButtonTextCancel}>
+              Cancelar
             </Text>
-            <Text style={styles.modalConfirmacionSubtext}>
-              Se eliminarán {materiasAnadidas.length} {materiasAnadidas.length === 1 ? 'materia' : 'materias'}. Esta acción no se puede deshacer.
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.modalConfirmacionButton,
+              styles.modalConfirmacionButtonConfirm,
+            ]}
+            onPress={confirmarLimpiarTodasLasMaterias}
+          >
+            <Text style={styles.modalConfirmacionButtonTextConfirm}>
+              Limpiar Todo
             </Text>
-            
-            <View style={styles.modalConfirmacionButtons}>
-              <Pressable 
-                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonCancel]}
-                onPress={() => setModalConfirmarLimpiar(false)}
-              >
-                <Text style={styles.modalConfirmacionButtonTextCancel}>Cancelar</Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.modalConfirmacionButton, styles.modalConfirmacionButtonConfirm]}
-                onPress={confirmarLimpiarTodasLasMaterias}
-              >
-                <Text style={styles.modalConfirmacionButtonTextConfirm}>Limpiar Todo</Text>
-              </Pressable>
-            </View>
+          </Pressable>
+        </View>
       </BlurModal>
 
       {/* MODAL DE OPCIONES */}
@@ -646,384 +752,596 @@ export default function OptionSidebarView({ onClose }) {
         containerStyle={styles.modalOpcionesContainer}
       >
         <ScrollView showsVerticalScrollIndicator={true}>
-              <Text style={styles.modalOpcionesTitle}>Opciones de Generación</Text>
-              
-              {/* ============== SECCIÓN: GENERAL ============== */}
-              <View style={styles.seccionContainer}>
-                <Text style={styles.seccionTitle}>General</Text>
-                
-                {/* Cupos */}
-                <View style={styles.opcionItem}>
-                  <View style={styles.opcionTextos}>
-                    <View style={styles.opcionLabelContainer}>
-                      <Text style={styles.opcionLabel}>Solo grupos con cupo</Text>
-                      <Pressable
-                        style={styles.tooltipIconButton}
-                        onPress={() => setTooltipVisible(tooltipVisible === 'cupos' ? null : 'cupos')}
-                      >
-                        <Text style={styles.tooltipIcon}>?</Text>
-                      </Pressable>
-                    </View>
-                    {tooltipVisible === 'cupos' && (
-                      <Text style={styles.tooltipText}>
-                        Si se marca, se descartarán todos los grupos cuyo cupo aparezca en 0.
-                      </Text>
-                    )}
-                  </View>
+          <Text style={styles.modalOpcionesTitle}>Opciones de Generación</Text>
+
+          {/* ============== SECCIÓN: GENERAL ============== */}
+          <View style={styles.seccionContainer}>
+            <Text style={styles.seccionTitle}>General</Text>
+
+            {/* Cupos */}
+            <View style={styles.opcionItem}>
+              <View style={styles.opcionTextos}>
+                <View style={styles.opcionLabelContainer}>
+                  <Text style={styles.opcionLabel}>Solo grupos con cupo</Text>
                   <Pressable
-                    style={[styles.toggleButton, opcionesGeneracion.cupos && styles.toggleButtonActive]}
-                    onPress={() => setOpcionesGeneracion(prev => ({...prev, cupos: !prev.cupos}))}
+                    style={styles.tooltipIconButton}
+                    onPress={() =>
+                      setTooltipVisible(
+                        tooltipVisible === "cupos" ? null : "cupos"
+                      )
+                    }
                   >
-                    {opcionesGeneracion.cupos && (
-                      <Image 
-                        source={require('../../assets/images/check.svg')}
-                        style={styles.toggleCheckIcon}
-                        contentFit="contain"
-                      />
-                    )}
+                    <Text style={styles.tooltipIcon}>?</Text>
                   </Pressable>
                 </View>
-
-                {/* Periodos */}
-                <View style={styles.opcionItem}>
-                  <View style={styles.opcionTextos}>
-                    <View style={styles.opcionLabelContainer}>
-                      <Text style={styles.opcionLabel}>Evitar conflictos de &quot;Materias Espejo&quot;</Text>
-                      <Pressable
-                        style={styles.tooltipIconButton}
-                        onPress={() => setTooltipVisible(tooltipVisible === 'periodos' ? null : 'periodos')}
-                      >
-                        <Text style={styles.tooltipIcon}>?</Text>
-                      </Pressable>
-                    </View>
-                    {tooltipVisible === 'periodos' && (
-                      <Text style={styles.tooltipText}>
-                        Activa esto si cursarás materias que son equivalentes (mismo ID) pero de diferentes periodos. El combinador evitará que se traslapen.
-                      </Text>
-                    )}
-                  </View>
-                  <Pressable
-                    style={[styles.toggleButton, opcionesGeneracion.periodos && styles.toggleButtonActive]}
-                    onPress={() => setOpcionesGeneracion(prev => ({...prev, periodos: !prev.periodos}))}
-                  >
-                    {opcionesGeneracion.periodos && (
-                      <Image 
-                        source={require('../../assets/images/check.svg')}
-                        style={styles.toggleCheckIcon}
-                        contentFit="contain"
-                      />
-                    )}
-                  </Pressable>
-                </View>
-
-                {/* Max Horarios */}
-                <View style={styles.opcionItemTitulo}>
-                  <View style={styles.opcionLabelContainer}>
-                    <Text style={styles.opcionLabel}>Límite de horarios a generar:</Text>
-                    <Pressable
-                      style={styles.tooltipIconButton}
-                      onPress={() => setTooltipVisible(tooltipVisible === 'maxHorarios' ? null : 'maxHorarios')}
-                    >
-                      <Text style={styles.tooltipIcon}>?</Text>
-                    </Pressable>
-                  </View>
-                  {tooltipVisible === 'maxHorarios' && (
-                    <Text style={styles.tooltipText}>
-                      El programa dejará de buscar una vez que alcance este número de combinaciones válidas. Usa -1 para &quot;infinito&quot;.
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.numeroHorariosContainer}>
-                  {[3, 5, 10, 15, -1].map(num => (
-                    <Pressable
-                      key={num}
-                      style={[
-                        styles.numeroHorarioButton,
-                        opcionesGeneracion.maxHorarios === num && styles.numeroHorarioButtonActive
-                      ]}
-                      onPress={() => setOpcionesGeneracion(prev => ({...prev, maxHorarios: num}))}
-                    >
-                      <Text style={[
-                        styles.numeroHorarioButtonText,
-                        opcionesGeneracion.maxHorarios === num && styles.numeroHorarioButtonTextActive
-                      ]}>
-                        {num === -1 ? 'Infinito' : num}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                {/* Huecos Finales */}
-                <View style={styles.opcionItemTitulo}>
-                  <View style={styles.opcionLabelContainer}>
-                    <Text style={styles.opcionLabel}>Máx. de huecos en horario FINAL:</Text>
-                    <Pressable
-                      style={styles.tooltipIconButton}
-                      onPress={() => setTooltipVisible(tooltipVisible === 'huecosFinales' ? null : 'huecosFinales')}
-                    >
-                      <Text style={styles.tooltipIcon}>?</Text>
-                    </Pressable>
-                  </View>
-                  {tooltipVisible === 'huecosFinales' && (
-                    <Text style={styles.tooltipText}>
-                      Es el número máximo de horas libres permitidas en una combinación completa. Si un horario tiene más huecos que este número, será descartado.
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.numeroHorariosContainer}>
-                  {[0, 1, 2, 3, 4, -1].map(num => (
-                    <Pressable
-                      key={num}
-                      style={[
-                        styles.numeroHorarioButton,
-                        opcionesGeneracion.huecosFinales === num && styles.numeroHorarioButtonActive
-                      ]}
-                      onPress={() => setOpcionesGeneracion(prev => ({...prev, huecosFinales: num}))}
-                    >
-                      <Text style={[
-                        styles.numeroHorarioButtonText,
-                        opcionesGeneracion.huecosFinales === num && styles.numeroHorarioButtonTextActive
-                      ]}>
-                        {num === -1 ? 'Infinito' : num}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                {/* Huecos Intermedios */}
-                <View style={styles.opcionItemTitulo}>
-                  <View style={styles.opcionLabelContainer}>
-                    <Text style={styles.opcionLabel}>Máx. de huecos en horarios PARCIALES:</Text>
-                    <Pressable
-                      style={styles.tooltipIconButton}
-                      onPress={() => setTooltipVisible(tooltipVisible === 'huecosIntermedios' ? null : 'huecosIntermedios')}
-                    >
-                      <Text style={styles.tooltipIcon}>?</Text>
-                    </Pressable>
-                  </View>
-                  {tooltipVisible === 'huecosIntermedios' && (
-                    <Text style={styles.tooltipText}>
-                      (Optimización) Número de huecos permitidos mientras se está construyendo un horario. Ayuda a descartar ramas de búsqueda ineficientes.
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.numeroHorariosContainer}>
-                  {[0, 1, 2, 3, 4, -1].map(num => (
-                    <Pressable
-                      key={num}
-                      style={[
-                        styles.numeroHorarioButton,
-                        opcionesGeneracion.huecosIntermedios === num && styles.numeroHorarioButtonActive
-                      ]}
-                      onPress={() => setOpcionesGeneracion(prev => ({...prev, huecosIntermedios: num}))}
-                    >
-                      <Text style={[
-                        styles.numeroHorarioButtonText,
-                        opcionesGeneracion.huecosIntermedios === num && styles.numeroHorarioButtonTextActive
-                      ]}>
-                        {num === -1 ? 'Infinito' : num}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                {tooltipVisible === "cupos" && (
+                  <Text style={styles.tooltipText}>
+                    Si se marca, se descartarán todos los grupos cuyo cupo
+                    aparezca en 0.
+                  </Text>
+                )}
               </View>
-
-              {/* ============== SECCIÓN: ORDEN DE LOS GRUPOS ============== */}
-              <View style={styles.seccionContainer}>
-                <Text style={styles.seccionTitle}>Orden de los grupos</Text>
-                <Text style={styles.seccionInstruccion}>
-                  Define cómo se ordenarán los grupos al generar horarios
-                </Text>
-
-                {/* Prioridad por Hora */}
-                <View style={styles.opcionItemTitulo}>
-                  <View style={styles.opcionLabelContainer}>
-                    <Text style={styles.opcionLabel}>Por Horario:</Text>
-                    <Pressable
-                      style={styles.tooltipIconButton}
-                      onPress={() => setTooltipVisible(tooltipVisible === 'prioridadHora' ? null : 'prioridadHora')}
-                    >
-                      <Text style={styles.tooltipIcon}>?</Text>
-                    </Pressable>
-                  </View>
-                  {tooltipVisible === 'prioridadHora' && (
-                    <Text style={styles.tooltipText}>
-                      Controla la preferencia de horario al generar combinaciones. Valores más altos dan mayor prioridad.
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.prioridadOpcionesContainer}>
-                  {[
-                    { value: 2, label: 'Tarde', sublabel: 'Prioridad alta', icon: require('../../assets/images/moon.svg') },
-                    { value: 1, label: 'Tarde', sublabel: 'Prioridad baja', icon: require('../../assets/images/cloud-moon.svg') },
-                    { value: 0, label: 'Sin orden', sublabel: '', icon: require('../../assets/images/cloud.svg') },
-                    { value: -1, label: 'Temprano', sublabel: 'Prioridad baja', icon: require('../../assets/images/cloud-sun.svg') },
-                    { value: -2, label: 'Temprano', sublabel: 'Prioridad alta', icon: require('../../assets/images/sun.svg') },
-                  ].map(option => (
-                    <Pressable
-                      key={option.value}
-                      style={[
-                        styles.prioridadOpcionButton,
-                        opcionesGeneracion.prioridadHora === option.value && styles.prioridadOpcionButtonActive
-                      ]}
-                      onPress={() => setOpcionesGeneracion(prev => ({...prev, prioridadHora: option.value}))}
-                    >
-                      <View style={styles.prioridadOpcionContent}>
-                        <Image 
-                          source={option.icon}
-                          style={styles.prioridadOpcionIcon}
-                          contentFit="contain"
-                        />
-                        <View style={styles.prioridadOpcionTexts}>
-                          <Text style={[
-                            styles.prioridadOpcionLabel,
-                            opcionesGeneracion.prioridadHora === option.value && styles.prioridadOpcionLabelActive
-                          ]}>
-                            {option.label}
-                          </Text>
-                          {option.sublabel !== '' && (
-                            <Text style={[
-                              styles.prioridadOpcionSublabel,
-                              opcionesGeneracion.prioridadHora === option.value && styles.prioridadOpcionSublabelActive
-                            ]}>
-                              {option.sublabel}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-
-                {/* Prioridad por Demanda */}
-                <View style={styles.opcionItemTitulo}>
-                  <View style={styles.opcionLabelContainer}>
-                    <Text style={styles.opcionLabel}>Por Disponibilidad:</Text>
-                    <Pressable
-                      style={styles.tooltipIconButton}
-                      onPress={() => setTooltipVisible(tooltipVisible === 'prioridadDemanda' ? null : 'prioridadDemanda')}
-                    >
-                      <Text style={styles.tooltipIcon}>?</Text>
-                    </Pressable>
-                  </View>
-                  {tooltipVisible === 'prioridadDemanda' && (
-                    <Text style={styles.tooltipText}>
-                      Controla la preferencia basada en cuántos lugares libres tiene cada grupo. Valores más altos dan mayor prioridad.
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.prioridadOpcionesContainer}>
-                  {[
-                    { value: 2, label: 'Más llenos', sublabel: 'Prioridad alta', icon: require('../../assets/images/graph-up.svg') },
-                    { value: 1, label: 'Más llenos', sublabel: 'Prioridad baja', icon: require('../../assets/images/graph-up.svg') },
-                    { value: 0, label: 'Sin orden', sublabel: '', icon: require('../../assets/images/graph.svg') },
-                    { value: -1, label: 'Más vacíos', sublabel: 'Prioridad baja', icon: require('../../assets/images/graph-down.svg') },
-                    { value: -2, label: 'Más vacíos', sublabel: 'Prioridad alta', icon: require('../../assets/images/graph-down.svg') },
-                  ].map(option => (
-                    <Pressable
-                      key={option.value}
-                      style={[
-                        styles.prioridadOpcionButton,
-                        opcionesGeneracion.prioridadDemanda === option.value && styles.prioridadOpcionButtonActive
-                      ]}
-                      onPress={() => setOpcionesGeneracion(prev => ({...prev, prioridadDemanda: option.value}))}
-                    >
-                      <View style={styles.prioridadOpcionContent}>
-                        <Image 
-                          source={option.icon}
-                          style={styles.prioridadOpcionIcon}
-                          contentFit="contain"
-                        />
-                        <View style={styles.prioridadOpcionTexts}>
-                          <Text style={[
-                            styles.prioridadOpcionLabel,
-                            opcionesGeneracion.prioridadDemanda === option.value && styles.prioridadOpcionLabelActive
-                          ]}>
-                            {option.label}
-                          </Text>
-                          {option.sublabel !== '' && (
-                            <Text style={[
-                              styles.prioridadOpcionSublabel,
-                              opcionesGeneracion.prioridadDemanda === option.value && styles.prioridadOpcionSublabelActive
-                            ]}>
-                              {option.sublabel}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            </ScrollView>
-
-            {/* Botones del modal de opciones */}
-            <View style={styles.modalOpcionesButtons}>
-              <Pressable 
-                style={styles.modalOpcionesButtonPrimary}
-                onPress={async () => {
-                  // Cargar horarios no disponibles desde AsyncStorage
-                  try {
-                    const disabledCells = await AsyncStorage.getItem('disabledScheduleCells');
-                    const horariosNoDisponibles = disabledCells ? JSON.parse(disabledCells) : {};
-                    
-                    // Preparar datos para enviar
-                    const datosGeneracion = {
-                      opciones: opcionesGeneracion,
-                      materias: materiasAnadidas,
-                      horariosNoDisponibles: horariosNoDisponibles,
-                      centroUniversitario: userData.centroUniversitario,
-                      calendario: userData.calendario,
-                      carrera: userData.carrera,
-                    };
-                    
-                    console.log('=== DATOS PARA GENERAR HORARIOS ===');
-                    console.log('Opciones de generación:', opcionesGeneracion);
-                    console.log('Materias añadidas:', materiasAnadidas);
-                    console.log('Horarios NO disponibles:', horariosNoDisponibles);
-                    console.log('Datos completos:', datosGeneracion);
-                    console.log('===================================');
-                    
-                    setModalOpcionesVisible(false);
-                    // Aquí irá la lógica de generación de horarios
-                    alert('Motor de generacion en desarrollo. Datos enviados a la consola.');
-                  } catch (error) {
-                    console.error('Error al cargar horarios no disponibles:', error);
-                    alert('Error al cargar configuración de horarios');
-                  }
-                }}
+              <Pressable
+                style={[
+                  styles.toggleButton,
+                  opcionesGeneracion.cupos && styles.toggleButtonActive,
+                ]}
+                onPress={() =>
+                  setOpcionesGeneracion((prev) => ({
+                    ...prev,
+                    cupos: !prev.cupos,
+                  }))
+                }
               >
-                <View style={styles.buttonContent}>
-                  <Image 
-                    source={require('../../assets/images/calendar-search.svg')}
-                    style={styles.modalOpcionesButtonIcon}
+                {opcionesGeneracion.cupos && (
+                  <Image
+                    source={require("../../assets/images/check.svg")}
+                    style={styles.toggleCheckIcon}
                     contentFit="contain"
                   />
-                  <Text style={styles.modalOpcionesButtonTextPrimary}>Generar Horario</Text>
-                </View>
+                )}
               </Pressable>
-              
-
-              <View style={{height: 10}} />
-              <Pressable 
-                style={styles.modalOpcionesButtonSecondary}
-                onPress={() => setModalOpcionesVisible(false)}
-              >
-                <Text style={styles.modalOpcionesButtonTextSecondary}>Cancelar</Text>
-              </Pressable>
-              
-              <View/>
-              <View style={{alignItems: 'center', marginTop: 10}}> 
-
-                <Pressable 
-                  onPress={() => router.push('/Tabs/GeneratedScheduleView')}
-                >
-                  <Text style={{color: 'red', backgroundColor: 'cyan'}}>MANDAR A CHINA WIII!!</Text>
-                </Pressable>
-            
-              </View>
             </View>
-            
+
+            {/* Periodos */}
+            <View style={styles.opcionItem}>
+              <View style={styles.opcionTextos}>
+                <View style={styles.opcionLabelContainer}>
+                  <Text style={styles.opcionLabel}>
+                    Evitar conflictos de &quot;Materias Espejo&quot;
+                  </Text>
+                  <Pressable
+                    style={styles.tooltipIconButton}
+                    onPress={() =>
+                      setTooltipVisible(
+                        tooltipVisible === "periodos" ? null : "periodos"
+                      )
+                    }
+                  >
+                    <Text style={styles.tooltipIcon}>?</Text>
+                  </Pressable>
+                </View>
+                {tooltipVisible === "periodos" && (
+                  <Text style={styles.tooltipText}>
+                    Activa esto si cursarás materias que son equivalentes (mismo
+                    ID) pero de diferentes periodos. El combinador evitará que
+                    se traslapen.
+                  </Text>
+                )}
+              </View>
+              <Pressable
+                style={[
+                  styles.toggleButton,
+                  opcionesGeneracion.periodos && styles.toggleButtonActive,
+                ]}
+                onPress={() =>
+                  setOpcionesGeneracion((prev) => ({
+                    ...prev,
+                    periodos: !prev.periodos,
+                  }))
+                }
+              >
+                {opcionesGeneracion.periodos && (
+                  <Image
+                    source={require("../../assets/images/check.svg")}
+                    style={styles.toggleCheckIcon}
+                    contentFit="contain"
+                  />
+                )}
+              </Pressable>
+            </View>
+
+            {/* Max Horarios */}
+            <View style={styles.opcionItemTitulo}>
+              <View style={styles.opcionLabelContainer}>
+                <Text style={styles.opcionLabel}>
+                  Límite de horarios a generar:
+                </Text>
+                <Pressable
+                  style={styles.tooltipIconButton}
+                  onPress={() =>
+                    setTooltipVisible(
+                      tooltipVisible === "maxHorarios" ? null : "maxHorarios"
+                    )
+                  }
+                >
+                  <Text style={styles.tooltipIcon}>?</Text>
+                </Pressable>
+              </View>
+              {tooltipVisible === "maxHorarios" && (
+                <Text style={styles.tooltipText}>
+                  El programa dejará de buscar una vez que alcance este número
+                  de combinaciones válidas. Usa -1 para &quot;infinito&quot;.
+                </Text>
+              )}
+            </View>
+            <View style={styles.numeroHorariosContainer}>
+              {[3, 5, 10, 15, -1].map((num) => (
+                <Pressable
+                  key={num}
+                  style={[
+                    styles.numeroHorarioButton,
+                    opcionesGeneracion.maxHorarios === num &&
+                      styles.numeroHorarioButtonActive,
+                  ]}
+                  onPress={() =>
+                    setOpcionesGeneracion((prev) => ({
+                      ...prev,
+                      maxHorarios: num,
+                    }))
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.numeroHorarioButtonText,
+                      opcionesGeneracion.maxHorarios === num &&
+                        styles.numeroHorarioButtonTextActive,
+                    ]}
+                  >
+                    {num === -1 ? "Infinito" : num}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Huecos Finales */}
+            <View style={styles.opcionItemTitulo}>
+              <View style={styles.opcionLabelContainer}>
+                <Text style={styles.opcionLabel}>
+                  Máx. de huecos en horario FINAL:
+                </Text>
+                <Pressable
+                  style={styles.tooltipIconButton}
+                  onPress={() =>
+                    setTooltipVisible(
+                      tooltipVisible === "huecosFinales"
+                        ? null
+                        : "huecosFinales"
+                    )
+                  }
+                >
+                  <Text style={styles.tooltipIcon}>?</Text>
+                </Pressable>
+              </View>
+              {tooltipVisible === "huecosFinales" && (
+                <Text style={styles.tooltipText}>
+                  Es el número máximo de horas libres permitidas en una
+                  combinación completa. Si un horario tiene más huecos que este
+                  número, será descartado.
+                </Text>
+              )}
+            </View>
+            <View style={styles.numeroHorariosContainer}>
+              {[0, 1, 2, 3, 4, -1].map((num) => (
+                <Pressable
+                  key={num}
+                  style={[
+                    styles.numeroHorarioButton,
+                    opcionesGeneracion.huecosFinales === num &&
+                      styles.numeroHorarioButtonActive,
+                  ]}
+                  onPress={() =>
+                    setOpcionesGeneracion((prev) => ({
+                      ...prev,
+                      huecosFinales: num,
+                    }))
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.numeroHorarioButtonText,
+                      opcionesGeneracion.huecosFinales === num &&
+                        styles.numeroHorarioButtonTextActive,
+                    ]}
+                  >
+                    {num === -1 ? "Infinito" : num}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Huecos Intermedios */}
+            <View style={styles.opcionItemTitulo}>
+              <View style={styles.opcionLabelContainer}>
+                <Text style={styles.opcionLabel}>
+                  Máx. de huecos en horarios PARCIALES:
+                </Text>
+                <Pressable
+                  style={styles.tooltipIconButton}
+                  onPress={() =>
+                    setTooltipVisible(
+                      tooltipVisible === "huecosIntermedios"
+                        ? null
+                        : "huecosIntermedios"
+                    )
+                  }
+                >
+                  <Text style={styles.tooltipIcon}>?</Text>
+                </Pressable>
+              </View>
+              {tooltipVisible === "huecosIntermedios" && (
+                <Text style={styles.tooltipText}>
+                  (Optimización) Número de huecos permitidos mientras se está
+                  construyendo un horario. Ayuda a descartar ramas de búsqueda
+                  ineficientes.
+                </Text>
+              )}
+            </View>
+            <View style={styles.numeroHorariosContainer}>
+              {[0, 1, 2, 3, 4, -1].map((num) => (
+                <Pressable
+                  key={num}
+                  style={[
+                    styles.numeroHorarioButton,
+                    opcionesGeneracion.huecosIntermedios === num &&
+                      styles.numeroHorarioButtonActive,
+                  ]}
+                  onPress={() =>
+                    setOpcionesGeneracion((prev) => ({
+                      ...prev,
+                      huecosIntermedios: num,
+                    }))
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.numeroHorarioButtonText,
+                      opcionesGeneracion.huecosIntermedios === num &&
+                        styles.numeroHorarioButtonTextActive,
+                    ]}
+                  >
+                    {num === -1 ? "Infinito" : num}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* ============== SECCIÓN: ORDEN DE LOS GRUPOS ============== */}
+          <View style={styles.seccionContainer}>
+            <Text style={styles.seccionTitle}>Orden de los grupos</Text>
+            <Text style={styles.seccionInstruccion}>
+              Define cómo se ordenarán los grupos al generar horarios
+            </Text>
+
+            {/* Prioridad por Hora */}
+            <View style={styles.opcionItemTitulo}>
+              <View style={styles.opcionLabelContainer}>
+                <Text style={styles.opcionLabel}>Por Horario:</Text>
+                <Pressable
+                  style={styles.tooltipIconButton}
+                  onPress={() =>
+                    setTooltipVisible(
+                      tooltipVisible === "prioridadHora"
+                        ? null
+                        : "prioridadHora"
+                    )
+                  }
+                >
+                  <Text style={styles.tooltipIcon}>?</Text>
+                </Pressable>
+              </View>
+              {tooltipVisible === "prioridadHora" && (
+                <Text style={styles.tooltipText}>
+                  Controla la preferencia de horario al generar combinaciones.
+                  Valores más altos dan mayor prioridad.
+                </Text>
+              )}
+            </View>
+            <View style={styles.prioridadOpcionesContainer}>
+              {[
+                {
+                  value: 2,
+                  label: "Tarde",
+                  sublabel: "Prioridad alta",
+                  icon: require("../../assets/images/moon.svg"),
+                },
+                {
+                  value: 1,
+                  label: "Tarde",
+                  sublabel: "Prioridad baja",
+                  icon: require("../../assets/images/cloud-moon.svg"),
+                },
+                {
+                  value: 0,
+                  label: "Sin orden",
+                  sublabel: "",
+                  icon: require("../../assets/images/cloud.svg"),
+                },
+                {
+                  value: -1,
+                  label: "Temprano",
+                  sublabel: "Prioridad baja",
+                  icon: require("../../assets/images/cloud-sun.svg"),
+                },
+                {
+                  value: -2,
+                  label: "Temprano",
+                  sublabel: "Prioridad alta",
+                  icon: require("../../assets/images/sun.svg"),
+                },
+              ].map((option) => (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.prioridadOpcionButton,
+                    opcionesGeneracion.prioridadHora === option.value &&
+                      styles.prioridadOpcionButtonActive,
+                  ]}
+                  onPress={() =>
+                    setOpcionesGeneracion((prev) => ({
+                      ...prev,
+                      prioridadHora: option.value,
+                    }))
+                  }
+                >
+                  <View style={styles.prioridadOpcionContent}>
+                    <Image
+                      source={option.icon}
+                      style={styles.prioridadOpcionIcon}
+                      contentFit="contain"
+                    />
+                    <View style={styles.prioridadOpcionTexts}>
+                      <Text
+                        style={[
+                          styles.prioridadOpcionLabel,
+                          opcionesGeneracion.prioridadHora === option.value &&
+                            styles.prioridadOpcionLabelActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {option.sublabel !== "" && (
+                        <Text
+                          style={[
+                            styles.prioridadOpcionSublabel,
+                            opcionesGeneracion.prioridadHora === option.value &&
+                              styles.prioridadOpcionSublabelActive,
+                          ]}
+                        >
+                          {option.sublabel}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Prioridad por Demanda */}
+            <View style={styles.opcionItemTitulo}>
+              <View style={styles.opcionLabelContainer}>
+                <Text style={styles.opcionLabel}>Por Disponibilidad:</Text>
+                <Pressable
+                  style={styles.tooltipIconButton}
+                  onPress={() =>
+                    setTooltipVisible(
+                      tooltipVisible === "prioridadDemanda"
+                        ? null
+                        : "prioridadDemanda"
+                    )
+                  }
+                >
+                  <Text style={styles.tooltipIcon}>?</Text>
+                </Pressable>
+              </View>
+              {tooltipVisible === "prioridadDemanda" && (
+                <Text style={styles.tooltipText}>
+                  Controla la preferencia basada en cuántos lugares libres tiene
+                  cada grupo. Valores más altos dan mayor prioridad.
+                </Text>
+              )}
+            </View>
+            <View style={styles.prioridadOpcionesContainer}>
+              {[
+                {
+                  value: 2,
+                  label: "Más llenos",
+                  sublabel: "Prioridad alta",
+                  icon: require("../../assets/images/graph-up.svg"),
+                },
+                {
+                  value: 1,
+                  label: "Más llenos",
+                  sublabel: "Prioridad baja",
+                  icon: require("../../assets/images/graph-up.svg"),
+                },
+                {
+                  value: 0,
+                  label: "Sin orden",
+                  sublabel: "",
+                  icon: require("../../assets/images/graph.svg"),
+                },
+                {
+                  value: -1,
+                  label: "Más vacíos",
+                  sublabel: "Prioridad baja",
+                  icon: require("../../assets/images/graph-down.svg"),
+                },
+                {
+                  value: -2,
+                  label: "Más vacíos",
+                  sublabel: "Prioridad alta",
+                  icon: require("../../assets/images/graph-down.svg"),
+                },
+              ].map((option) => (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.prioridadOpcionButton,
+                    opcionesGeneracion.prioridadDemanda === option.value &&
+                      styles.prioridadOpcionButtonActive,
+                  ]}
+                  onPress={() =>
+                    setOpcionesGeneracion((prev) => ({
+                      ...prev,
+                      prioridadDemanda: option.value,
+                    }))
+                  }
+                >
+                  <View style={styles.prioridadOpcionContent}>
+                    <Image
+                      source={option.icon}
+                      style={styles.prioridadOpcionIcon}
+                      contentFit="contain"
+                    />
+                    <View style={styles.prioridadOpcionTexts}>
+                      <Text
+                        style={[
+                          styles.prioridadOpcionLabel,
+                          opcionesGeneracion.prioridadDemanda ===
+                            option.value && styles.prioridadOpcionLabelActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {option.sublabel !== "" && (
+                        <Text
+                          style={[
+                            styles.prioridadOpcionSublabel,
+                            opcionesGeneracion.prioridadDemanda ===
+                              option.value &&
+                              styles.prioridadOpcionSublabelActive,
+                          ]}
+                        >
+                          {option.sublabel}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Botones del modal de opciones */}
+        <View style={styles.modalOpcionesButtons}>
+          <Pressable
+            style={styles.modalOpcionesButtonPrimary}
+            onPress={async () => {
+              try {
+                setLoadingGeneracion(true);
+
+                // Utilidad para transformar celdas bloqueadas a formato Horario.fromData
+                function mapDisabledCellsToHorarioData(disabledCellsArray) {
+                  // disabledCellsArray: [{ dia: 1-6, hora: "HH:MM:SS.mmmmmm" }]
+                  return disabledCellsArray.map((cell) => {
+                    const dia_semana = (cell.dia || 1) - 1; // Lunes=1 → 0
+                    const hora_inicio = cell.hora
+                      ? cell.hora.substring(0, 5)
+                      : "07:00";
+                    // Asume bloqueos de 1 hora
+                    const startHour = parseInt(hora_inicio.split(":")[0]);
+                    const hora_fin = `${(startHour + 1)
+                      .toString()
+                      .padStart(2, "0")}:00`;
+                    return { dia_semana, hora_inicio, hora_fin };
+                  });
+                }
+
+                // 1. Fetch sections for ALL selected subjects
+                const promises = materiasAnadidas.map((materia) =>
+                  fetchSeccionesData(materia.clave)
+                );
+
+                const seccionesArrays = await Promise.all(promises);
+
+                // 2. Load constraints
+                const disabledCells = await AsyncStorage.getItem(
+                  "disabledScheduleCells"
+                );
+                const horariosNoDisponibles = disabledCells
+                  ? JSON.parse(disabledCells)
+                  : null;
+
+                // 3. Run Generation (this runs the ported Apeiron logic)
+                const bloqueosHorarioData = mapDisabledCellsToHorarioData(horariosNoDisponibles);
+                console.log("Bloqueos de horario:", bloqueosHorarioData);
+
+                const generatedSchedules = generateSchedules(
+                  materiasAnadidas,
+                  seccionesArrays,
+                  opcionesGeneracion,
+                  bloqueosHorarioData
+                );
+                console.log("Horarios generados:", generatedSchedules);
+                // 4. Navigate to view with results
+                if (generatedSchedules.length > 0) {
+                  // We can't pass huge objects via URL params comfortably.
+                  // Store in Context, Redux, or AsyncStorage temp
+                  await AsyncStorage.setItem(
+                    "tempGeneratedSchedules",
+                    JSON.stringify(generatedSchedules)
+                  );
+                  setModalOpcionesVisible(false);
+                  router.push("/Tabs/GeneratedScheduleView");
+                } else {
+                  alert(
+                    "No se encontraron combinaciones posibles con las restricciones actuales."
+                  );
+                }
+              } catch (error) {
+                console.error(error);
+                alert("Error generando horario");
+              } finally {
+                setLoadingGeneracion(false);
+              }
+            }}
+          >
+            <View style={styles.buttonContent}>
+              <Image
+                source={require("../../assets/images/calendar-search.svg")}
+                style={styles.modalOpcionesButtonIcon}
+                contentFit="contain"
+              />
+              <Text style={styles.modalOpcionesButtonTextPrimary}>
+                Generar Horario
+              </Text>
+            </View>
+          </Pressable>
+
+          <View style={{ height: 10 }} />
+          <Pressable
+            style={styles.modalOpcionesButtonSecondary}
+            onPress={() => setModalOpcionesVisible(false)}
+          >
+            <Text style={styles.modalOpcionesButtonTextSecondary}>
+              Cancelar
+            </Text>
+          </Pressable>
+
+          <View />
+          <View style={{ alignItems: "center", marginTop: 10 }}>
+            <Pressable
+              onPress={() => router.push("/Tabs/GeneratedScheduleView")}
+            >
+              <Text style={{ color: "red", backgroundColor: "cyan" }}>
+                MANDAR A CHINA WIII!!
+              </Text>
+            </Pressable>
+          </View>
+        </View>
       </BlurModal>
 
       {/* EL POP-UP */}
@@ -1033,9 +1351,9 @@ export default function OptionSidebarView({ onClose }) {
         fastAnimation={true}
         statusBarTranslucent={false}
         containerStyle={{
-          width: '90%',
+          width: "90%",
           maxWidth: 500,
-          maxHeight: '80%',
+          maxHeight: "80%",
           padding: 20,
           backgroundColor: "white",
           borderRadius: 10,
@@ -1049,170 +1367,174 @@ export default function OptionSidebarView({ onClose }) {
           elevation: 5,
         }}
       >
-            <ScrollView showsVerticalScrollIndicator={true}>
-              <Text
-                style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}
-              >
-                {editingIndex !== null ? "Editar Materia" : "Materia a seleccionar"}
-              </Text>
-              
-              <View style={{ zIndex: 9999, elevation: 9999 }}>
-                <Dropdown
-                  placeholder="Selecciona una materia"
-                  
-                  disable={loadingMaterias} 
-                  data={materias.filter(m => {
-                    // Si estamos editando, permitir la materia actual
-                    if (editingIndex !== null) {
-                      return true;
-                    }
-                    // Si es nueva, filtrar las ya añadidas
-                    return !materiasAnadidas.some(ma => ma.clave === m.value);
-                  })}
-                  labelField="label"
-                  valueField="value"
-                  style={styles.dropdown}
-                  maxHeight={300}
-                  selectedTextStyle={{ color: "black" }}
-                  placeholderStyle={{ color: "gray" }}
-                  search
-                  searchPlaceholder="Buscar..."
-                  value={selectedMateria}
-                  onChange={(item) => {
-                    console.log("Materia seleccionada:", item);
-                    setSelectedMateria(item.value);
-                    fetchSecciones(item.value);
-                  }}
-                  
-                  dropdownPosition="auto"
-                  flatListProps={{
-                    nestedScrollEnabled: true,
-                  }}
-                  
+        <ScrollView showsVerticalScrollIndicator={true}>
+          <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
+            {editingIndex !== null ? "Editar Materia" : "Materia a seleccionar"}
+          </Text>
 
-                />
-              </View>
-              {/* Loading de materias*/}
-              {loadingMaterias && (
-                <View style={{ alignItems: 'center', marginVertical: 20 }}>
-                  <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-                  <Text style={{ marginTop: 10 }}>Cargando materias...</Text>
-                </View>
-              )}
-              {/* Loading de secciones */}
-              {loadingSecciones && (
-                <View style={{ alignItems: 'center', marginVertical: 20 }}>
-                  <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-                  <Text style={{ marginTop: 10 }}>Cargando profesores...</Text>
-                </View>
-              )}
-
-              {/* Lista de profesores con botones like/dislike */}
-              {!loadingSecciones && profesores.length > 0 && (
-                <View style={{ marginTop: 20 }}>
-                  <Text style={{ fontSize: 16, fontWeight: "bold", marginBottom: 10 }}>
-                    Selecciona tus preferencias de profesores:
-                  </Text>
-                  
-                  {/* Buscador de profesores */}
-                  <TextInput
-                    style={styles.searchProfesorInput}
-                    placeholder="Buscar profesor..."
-                    value={searchProfesor}
-                    onChangeText={setSearchProfesor}
-                  />
-                  
-                  {profesores
-                    .filter(profesor => 
-                      profesor.toLowerCase().includes(searchProfesor.toLowerCase())
-                    )
-                    .map((profesor, index) => (
-                    <View key={index} style={styles.profesorItem}>
-                      <Text style={styles.profesorNombre} numberOfLines={2}>
-                        {profesor}
-                      </Text>
-                      
-                      <View style={styles.preferenceButtons}>
-                        {/* Botón Like */}
-                        <Pressable
-                          style={[
-                            styles.preferenceButton,
-                            profesorPreferences[profesor] === 1 && styles.likeActive
-                          ]}
-                          onPress={() => handleProfesorPreference(profesor, 1)}
-                        >
-                          <Image 
-                            source={profesorPreferences[profesor] === 1 
-                              ? require('../../assets/images/like_used.svg')
-                              : require('../../assets/images/like.svg')
-                            }
-                            style={styles.preferenceIcon}
-                            contentFit="contain"
-                          />
-                        </Pressable>
-
-                        {/* Botón Dislike */}
-                        <Pressable
-                          style={[
-                            styles.preferenceButton,
-                            profesorPreferences[profesor] === 2 && styles.dislikeActive
-                          ]}
-                          onPress={() => handleProfesorPreference(profesor, 2)}
-                        >
-                          <Image 
-                            source={profesorPreferences[profesor] === 2 
-                              ? require('../../assets/images/dislike_used.svg')
-                              : require('../../assets/images/dislike.svg')
-                            }
-                            style={styles.preferenceIcon}
-                            contentFit="contain"
-                          />
-                        </Pressable>
-                      </View>
-                    </View>
-                  ))}
-                  
-                  {/* Mensaje si no hay resultados */}
-                  {profesores.filter(profesor => 
-                    profesor.toLowerCase().includes(searchProfesor.toLowerCase())
-                  ).length === 0 && searchProfesor.trim() !== '' && (
-                    <View style={styles.noResultsContainer}>
-                      <Text style={styles.noResultsText}>
-                        No se encontraron profesores con &quot;{searchProfesor}&quot;
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-            </ScrollView>
-
-            {/* Botones del modal */}
-            <View style={{ marginTop: 15, gap: 10}}>
-              <Pressable 
-                style={
-                  !selectedMateria || profesores.length === 0
-                    ? styles.modalButtonDisabled
-                    : styles.modalButtonPrimary
+          <View style={{ zIndex: 9999, elevation: 9999 }}>
+            <Dropdown
+              placeholder="Selecciona una materia"
+              disable={loadingMaterias}
+              data={materias.filter((m) => {
+                // Si estamos editando, permitir la materia actual
+                if (editingIndex !== null) {
+                  return true;
                 }
-                onPress={handleSaveMateria}
-                disabled={!selectedMateria || profesores.length === 0}
-              >
-                <Text style={
-                  !selectedMateria || profesores.length === 0
-                    ? styles.modalButtonTextDisabled
-                    : styles.modalButtonTextPrimary
-                }>
-                  {editingIndex !== null ? "Guardar Cambios" : "Guardar Materia"}
-                </Text>
-              </Pressable>
-              
-              <Pressable 
-                style={styles.modalButtonSecondary}
-                onPress={handleCloseModal}
-              >
-                <Text style={styles.modalButtonTextSecondary}>Cancelar</Text>
-              </Pressable>
+                // Si es nueva, filtrar las ya añadidas
+                return !materiasAnadidas.some((ma) => ma.clave === m.value);
+              })}
+              labelField="label"
+              valueField="value"
+              style={styles.dropdown}
+              maxHeight={300}
+              selectedTextStyle={{ color: "black" }}
+              placeholderStyle={{ color: "gray" }}
+              search
+              searchPlaceholder="Buscar..."
+              value={selectedMateria}
+              onChange={(item) => {
+                console.log("Materia seleccionada:", item);
+                setSelectedMateria(item.value);
+                fetchSecciones(item.value);
+              }}
+              dropdownPosition="auto"
+              flatListProps={{
+                nestedScrollEnabled: true,
+              }}
+            />
+          </View>
+          {/* Loading de materias*/}
+          {loadingMaterias && (
+            <View style={{ alignItems: "center", marginVertical: 20 }}>
+              <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+              <Text style={{ marginTop: 10 }}>Cargando materias...</Text>
             </View>
+          )}
+          {/* Loading de secciones */}
+          {loadingSecciones && (
+            <View style={{ alignItems: "center", marginVertical: 20 }}>
+              <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+              <Text style={{ marginTop: 10 }}>Cargando profesores...</Text>
+            </View>
+          )}
+
+          {/* Lista de profesores con botones like/dislike */}
+          {!loadingSecciones && profesores.length > 0 && (
+            <View style={{ marginTop: 20 }}>
+              <Text
+                style={{ fontSize: 16, fontWeight: "bold", marginBottom: 10 }}
+              >
+                Selecciona tus preferencias de profesores:
+              </Text>
+
+              {/* Buscador de profesores */}
+              <TextInput
+                style={styles.searchProfesorInput}
+                placeholder="Buscar profesor..."
+                value={searchProfesor}
+                onChangeText={setSearchProfesor}
+              />
+
+              {profesores
+                .filter((profesor) =>
+                  profesor.toLowerCase().includes(searchProfesor.toLowerCase())
+                )
+                .map((profesor, index) => (
+                  <View key={index} style={styles.profesorItem}>
+                    <Text style={styles.profesorNombre} numberOfLines={2}>
+                      {profesor}
+                    </Text>
+
+                    <View style={styles.preferenceButtons}>
+                      {/* Botón Like */}
+                      <Pressable
+                        style={[
+                          styles.preferenceButton,
+                          profesorPreferences[profesor] === 1 &&
+                            styles.likeActive,
+                        ]}
+                        onPress={() => handleProfesorPreference(profesor, 1)}
+                      >
+                        <Image
+                          source={
+                            profesorPreferences[profesor] === 1
+                              ? require("../../assets/images/like_used.svg")
+                              : require("../../assets/images/like.svg")
+                          }
+                          style={styles.preferenceIcon}
+                          contentFit="contain"
+                        />
+                      </Pressable>
+
+                      {/* Botón Dislike */}
+                      <Pressable
+                        style={[
+                          styles.preferenceButton,
+                          profesorPreferences[profesor] === 2 &&
+                            styles.dislikeActive,
+                        ]}
+                        onPress={() => handleProfesorPreference(profesor, 2)}
+                      >
+                        <Image
+                          source={
+                            profesorPreferences[profesor] === 2
+                              ? require("../../assets/images/dislike_used.svg")
+                              : require("../../assets/images/dislike.svg")
+                          }
+                          style={styles.preferenceIcon}
+                          contentFit="contain"
+                        />
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+
+              {/* Mensaje si no hay resultados */}
+              {profesores.filter((profesor) =>
+                profesor.toLowerCase().includes(searchProfesor.toLowerCase())
+              ).length === 0 &&
+                searchProfesor.trim() !== "" && (
+                  <View style={styles.noResultsContainer}>
+                    <Text style={styles.noResultsText}>
+                      No se encontraron profesores con &quot;{searchProfesor}
+                      &quot;
+                    </Text>
+                  </View>
+                )}
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Botones del modal */}
+        <View style={{ marginTop: 15, gap: 10 }}>
+          <Pressable
+            style={
+              !selectedMateria || profesores.length === 0
+                ? styles.modalButtonDisabled
+                : styles.modalButtonPrimary
+            }
+            onPress={handleSaveMateria}
+            disabled={!selectedMateria || profesores.length === 0}
+          >
+            <Text
+              style={
+                !selectedMateria || profesores.length === 0
+                  ? styles.modalButtonTextDisabled
+                  : styles.modalButtonTextPrimary
+              }
+            >
+              {editingIndex !== null ? "Guardar Cambios" : "Guardar Materia"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.modalButtonSecondary}
+            onPress={handleCloseModal}
+          >
+            <Text style={styles.modalButtonTextSecondary}>Cancelar</Text>
+          </Pressable>
+        </View>
       </BlurModal>
     </View>
   );
@@ -1510,9 +1832,9 @@ const styles = StyleSheet.create({
   },
   // Estilos para modal de opciones
   modalOpcionesContainer: {
-    width: '90%',
+    width: "90%",
     maxWidth: 500,
-    maxHeight: '85%',
+    maxHeight: "85%",
     backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
@@ -1745,7 +2067,7 @@ const styles = StyleSheet.create({
   },
   // Estilos para modales de confirmación
   modalConfirmacionContainer: {
-    width: '85%',
+    width: "85%",
     maxWidth: 400,
     backgroundColor: "white",
     borderRadius: 12,

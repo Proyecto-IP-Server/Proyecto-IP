@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import BlurModal from '@/components/BlurModal';
 import GeneratedScheduleSidebar from './GeneratedScheduleSidebar';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -41,164 +42,27 @@ export default function GeneratedScheduleView() {
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   const isMobileScreen = screenWidth < 768;
   
-  // Datos de prueba - simula la generación de múltiples combinaciones de horarios
+  // Carga los horarios generados desde AsyncStorage (local storage)
   useEffect(() => {
-    // Simular carga inicial
-    setTimeout(() => {
-      setLoading(false);
+    async function cargarHorariosGenerados() {
+      setLoading(true);
       setGenerando(true);
-      
-      // Definir materias de ejemplo con datos reales
-      const materiasEjemplo = [
-        {
-          nrc: '54321',
-          codigo: 'IL349',
-          nombre: 'ADMINISTRACION',
-          profesor: 'LOPEZ FRANCO, ADRIANA LISET',
-          creditos: 7,
-          seccion: 'D01',
-          horarios: [
-            { dia: 'Lunes', horaInicio: '07:00', horaFin: '09:00', aula: 'L301' },
-            { dia: 'Miércoles', horaInicio: '07:00', horaFin: '09:00', aula: 'L301' },
-          ]
-        },
-        {
-          nrc: '54322',
-          codigo: 'CB224',
-          nombre: 'INGENIERIA DE SOFTWARE',
-          profesor: 'LARA LOPEZ, GRACIELA',
-          creditos: 8,
-          seccion: 'D02',
-          horarios: [
-            { dia: 'Martes', horaInicio: '09:00', horaFin: '11:00', aula: 'K201' },
-            { dia: 'Jueves', horaInicio: '09:00', horaFin: '11:00', aula: 'K201' },
-          ]
-        },
-        {
-          nrc: '54323',
-          codigo: 'IL357',
-          nombre: 'TEORIA DE LA COMPUTACION',
-          profesor: 'LOPEZ CISNEROS, JUAN JOSE',
-          creditos: 7,
-          seccion: 'D01',
-          horarios: [
-            { dia: 'Lunes', horaInicio: '11:00', horaFin: '13:00', aula: 'M102' },
-            { dia: 'Viernes', horaInicio: '07:00', horaFin: '09:00', aula: 'M102' },
-          ]
-        },
-        {
-          nrc: '54324',
-          codigo: 'IL365',
-          nombre: 'ARQUITECTURA DE COMPUTADORAS',
-          profesor: 'LOPEZ ARCE DELGADO, JORGE ERNESTO',
-          creditos: 8,
-          seccion: 'D03',
-          horarios: [
-            { dia: 'Martes', horaInicio: '07:00', horaFin: '09:00', aula: 'F105' },
-            { dia: 'Jueves', horaInicio: '07:00', horaFin: '09:00', aula: 'F105' },
-          ]
-        },
-      ];
-      
-      // Generar múltiples combinaciones de horarios (simulación)
-      // En producción, estos vendrían del backend
-      setTimeout(() => {
-        const horariosGeneradosSimulados = [
-          {
-            id: 1,
-            materias: materiasEjemplo
-          },
-          {
-            id: 2,
-            materias: [
-              materiasEjemplo[0],
-              {
-                ...materiasEjemplo[1],
-                profesor: 'ARREOLA GONZALEZ, MAURICIO RODOLFO',
-                seccion: 'D05',
-                horarios: [
-                  { dia: 'Lunes', horaInicio: '09:00', horaFin: '11:00', aula: 'K203' },
-                  { dia: 'Miércoles', horaInicio: '09:00', horaFin: '11:00', aula: 'K203' },
-                ]
-              },
-              materiasEjemplo[2],
-              materiasEjemplo[3],
-            ]
-          },
-          {
-            id: 3,
-            materias: [
-              {
-                ...materiasEjemplo[0],
-                profesor: 'HERNANDEZ CASTILLO, BLANCA LETICIA',
-                seccion: 'D04',
-                horarios: [
-                  { dia: 'Martes', horaInicio: '07:00', horaFin: '09:00', aula: 'L302' },
-                  { dia: 'Jueves', horaInicio: '11:00', horaFin: '13:00', aula: 'L302' },
-                ]
-              },
-              materiasEjemplo[1],
-              {
-                ...materiasEjemplo[2],
-                profesor: 'ESPINOZA VALDEZ, AURORA',
-                seccion: 'D03',
-                horarios: [
-                  { dia: 'Miércoles', horaInicio: '11:00', horaFin: '13:00', aula: 'M103' },
-                  { dia: 'Viernes', horaInicio: '09:00', horaFin: '11:00', aula: 'M103' },
-                ]
-              },
-              materiasEjemplo[3],
-            ]
-          },
-          {
-            id: 4,
-            materias: [
-              materiasEjemplo[0],
-              materiasEjemplo[1],
-              materiasEjemplo[2],
-              {
-                ...materiasEjemplo[3],
-                profesor: 'GUTIERREZ SALMERON, MARTHA DEL CARMEN',
-                seccion: 'D02',
-                horarios: [
-                  { dia: 'Lunes', horaInicio: '09:00', horaFin: '11:00', aula: 'F106' },
-                  { dia: 'Viernes', horaInicio: '11:00', horaFin: '13:00', aula: 'F106' },
-                ]
-              },
-            ]
-          },
-          {
-            id: 5,
-            materias: [
-              {
-                ...materiasEjemplo[0],
-                profesor: 'GODINEZ CHAVOYA, ANA CRISTINA',
-                seccion: 'D03',
-                horarios: [
-                  { dia: 'Martes', horaInicio: '11:00', horaFin: '13:00', aula: 'L303' },
-                  { dia: 'Jueves', horaInicio: '07:00', horaFin: '09:00', aula: 'L303' },
-                ]
-              },
-              {
-                ...materiasEjemplo[1],
-                profesor: 'QUINTANILLA MORENO, FRANCISCO JAVIER',
-                seccion: 'D06',
-                horarios: [
-                  { dia: 'Miércoles', horaInicio: '09:00', horaFin: '11:00', aula: 'K204' },
-                  { dia: 'Viernes', horaInicio: '07:00', horaFin: '09:00', aula: 'K204' },
-                ]
-              },
-              materiasEjemplo[2],
-              materiasEjemplo[3],
-            ]
-          },
-        ];
-        
-        setHorariosGenerados(horariosGeneradosSimulados);
-        setHorarioActual(horariosGeneradosSimulados[0]); // Seleccionar el primero por defecto
-        setGenerando(false);
-      }, 2000); // 2 segundos para simular generación
-    }, 1500);
+      try {
+        const generatedSchedulesRaw = await AsyncStorage.getItem("tempGeneratedSchedules");
+        let generatedSchedules = [];
+        if (generatedSchedulesRaw) {
+          generatedSchedules = JSON.parse(generatedSchedulesRaw);
+        }
+        setHorariosGenerados(generatedSchedules);
+        setHorarioActual(generatedSchedules[0] || null);
+      } catch {
+        setHorariosGenerados([]);
+        setHorarioActual(null);
+      }
+      setGenerando(false);
+      setLoading(false);
+    }
+    cargarHorariosGenerados();
   }, []);
   
   // Listener para cambios de tamaño de pantalla (responsividad en tiempo real)

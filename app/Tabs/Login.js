@@ -226,7 +226,7 @@ export default function Login() {
             labelField="carrera"
             valueField="value"
             autoScroll={false}
-            dropdownPosition='top'
+            dropdownPosition='auto'
             flatListProps={{
                     nestedScrollEnabled: true,
                   }}
