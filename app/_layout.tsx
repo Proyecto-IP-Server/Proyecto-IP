@@ -8,6 +8,7 @@ export default function RootLayout() {
       <Stack.Screen name="Tabs/GeneratedScheduleView" options={{ headerShown: false }} />
       <Stack.Screen name="Tabs/faq" options={{ headerShown: false}} />
       <Stack.Screen name="Tabs/resenas" options={{ headerShown: false}} />
+      <Stack.Screen name="Tabs/suport" options={{ headerShown: false}} />
     </Stack>
   );
 }

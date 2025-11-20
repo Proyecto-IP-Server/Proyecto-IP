@@ -1339,10 +1339,10 @@ export default function OptionSidebarView({ onClose }) {
           <View />
           <View style={{ alignItems: "center", marginTop: 10 }}>
             <Pressable
-              onPress={() => router.push("/Tabs/GeneratedScheduleView")}
+              onPress={() => router.push("/Tabs/suport")}
             >
               <Text style={{ color: "red", backgroundColor: "cyan" }}>
-                MANDAR A CHINA WIII!!
+                Ir a pagina de sporte (por ahora así)
               </Text>
             </Pressable>
           </View>
