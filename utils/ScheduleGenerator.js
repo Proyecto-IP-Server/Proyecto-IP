@@ -299,6 +299,7 @@ export const generateSchedules = (
           ...sec, // Keep original properties (nrc, profesor, etc)
           nombre: config.nombreMateria,
           codigo: config.clave,
+          creditos: config.creditos,
           horarioObj: Horario.fromData(sec.sesiones), // Create Bitmask
           horarios: formatHorariosForView(sec.sesiones) // Pre-format for View
         };
@@ -313,11 +314,10 @@ export const generateSchedules = (
   const sortedMateriasGroups = sortedIndices.map(i => materiasGroups[i]);
 
   // 3. Prepare Constraints
-  const constraintHorario = new Horario();
-  // TODO: convert `blockedSchedule` (UI format) to `constraintHorario` (Bitmask)
-  // Assuming blockedSchedule is simple array of {day, time} or similar
+  const constraintHorario = Horario.fromData(blockedSchedule);
+  console.log("Bloqueos aplicados (Total Value):", constraintHorario.totalVal);
 
-  // 4. Run Engine
+  // 4. Run Engine passes constraintHorario to constructor
   const engine = new GeneratorEngine(sortedMateriasGroups, options, constraintHorario);
   const results = engine.start();
 

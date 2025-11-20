@@ -229,6 +229,7 @@ export default function OptionSidebarView({ onClose }) {
         .map((materia) => ({
           label: `${materia.clave} - ${materia.nombre}`,
           value: materia.clave,
+          creditos: materia.creditos
         }));
       setMaterias(materiaList);
       console.log("Materias obtenidas:", materiaList);
@@ -330,9 +331,11 @@ export default function OptionSidebarView({ onClose }) {
       clave: selectedMateria,
       nombreMateria:
         materias.find((m) => m.value === selectedMateria)?.label || "",
+      creditos: 
+        materias.find((m) => m.value === selectedMateria)?.creditos || 0,
       profesores: profesorPreferences,
     };
-
+    console.log("Guardando materia:", materiaData);
     // Guardar el ciclo actual cuando se añade la primera materia
     if (materiasAnadidas.length === 0) {
       await AsyncStorage.setItem("cicloMaterias", userData.calendario);
@@ -342,6 +345,7 @@ export default function OptionSidebarView({ onClose }) {
       // Editar materia existente
       const nuevasMateriasAnadidas = [...materiasAnadidas];
       nuevasMateriasAnadidas[editingIndex] = materiaData;
+      
       setMateriasAnadidas(nuevasMateriasAnadidas);
       setEditingIndex(null);
     } else {
@@ -1271,6 +1275,7 @@ export default function OptionSidebarView({ onClose }) {
                 const disabledCells = await AsyncStorage.getItem(
                   "disabledScheduleCells"
                 );
+
                 const horariosNoDisponibles = disabledCells
                   ? JSON.parse(disabledCells)
                   : null;
