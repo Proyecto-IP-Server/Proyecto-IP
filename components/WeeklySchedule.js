@@ -71,6 +71,9 @@ export function WeeklySchedule() {
     const loadDisabledCells = async () => {
         try {
             const saved = await AsyncStorage.getItem('disabledScheduleCells');
+            if (saved === null) {
+                await AsyncStorage.setItem('disabledScheduleCells', JSON.stringify([]));
+            }
             if (saved) {
                 const formattedCells = JSON.parse(saved);
                 
