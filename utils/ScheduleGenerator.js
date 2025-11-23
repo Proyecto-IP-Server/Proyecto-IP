@@ -152,6 +152,12 @@ class GeneratorEngine {
       if (a.calculatedHuecos !== b.calculatedHuecos) {
         return a.calculatedHuecos - b.calculatedHuecos;
       }
+      // Si los huecos son iguales, damos prioridad a la sección marcada como favorita (1).
+      // Orden descendente: 1 (favorito) va antes que 0 (neutral).
+      const diffProf = b.preference - a.preference;
+      if (diffProf !== 0) {
+        return diffProf;
+      }
 
       // 2. User Preference: Availability (Demanda)
       if (prioridadDemanda !== 0) {
@@ -263,17 +269,6 @@ export const generateSchedules = (
     materiasMap.set(conf.clave, []);
   });
 
-  seccionesData.flat().forEach(seccion => {
-    // Find which configured subject this section belongs to
-    // Note: You need to ensure 'seccion' object has 'clave_materia' or similar
-    // If the API sections don't have the parent Code, you need to pass that association
-    // Assuming the passed 'seccionesData' is an array of arrays matching 'materiasConfig' order is risky
-    // Better to rely on the Input Data structure.
-    
-    // If logic relies on index matching:
-    // We will assume seccionesData is [[sections_for_mat_1], [sections_for_mat_2]]
-  });
-
   // Re-structure input based on how OptionSidebarView usually fetches data
   // Since OptionSidebarView fetches individually, let's assume 'seccionesData' is an Array of Arrays
   // where index matches 'materiasConfig' index.
@@ -294,6 +289,9 @@ export const generateSchedules = (
         return true;
       })
       .map(sec => {
+        // MODIFICACIÓN: Recuperamos el estatus (0 o 1) para guardarlo
+        const profStatus = allowedProfs[sec.profesor] || 0;
+
         // Transform to Internal Group Object
         return {
           ...sec, // Keep original properties (nrc, profesor, etc)
@@ -301,7 +299,11 @@ export const generateSchedules = (
           codigo: config.clave,
           creditos: config.creditos,
           horarioObj: Horario.fromData(sec.sesiones), // Create Bitmask
-          horarios: formatHorariosForView(sec.sesiones) // Pre-format for View
+          horarios: formatHorariosForView(sec.sesiones), // Pre-format for View
+          
+          // MODIFICACIÓN: Guardamos la preferencia (1=Fav, 0=Normal)
+          // para usarla en el ordenamiento
+          preference: profStatus
         };
       });
   });

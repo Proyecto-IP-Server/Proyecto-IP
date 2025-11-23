@@ -7,7 +7,9 @@ import {
   Pressable,
   ActivityIndicator,
   Dimensions,
-} from "react-native";
+  Modal
+} 
+from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import TextTitle from "../../components/TextTitle";
@@ -23,12 +25,12 @@ import { generateSchedules } from "../../utils/ScheduleGenerator";
 // Utilidad para transformar celdas bloqueadas a formato Horario.fromData
 function mapDisabledCellsToHorarioData(disabledCellsArray) {
   // disabledCellsArray: [{ dia: 1-6, hora: "HH:MM:SS.mmmmmm" }]
-  return disabledCellsArray.map(cell => {
+  return disabledCellsArray.map((cell) => {
     const dia_semana = (cell.dia || 1) - 1; // Lunes=1 → 0
     const hora_inicio = cell.hora ? cell.hora.substring(0, 5) : "07:00";
     // Asume bloqueos de 1 hora
-    const startHour = parseInt(hora_inicio.split(':')[0]);
-    const hora_fin = `${(startHour + 1).toString().padStart(2, '0')}:00`;
+    const startHour = parseInt(hora_inicio.split(":")[0]);
+    const hora_fin = `${(startHour + 1).toString().padStart(2, "0")}:00`;
     return { dia_semana, hora_inicio, hora_fin };
   });
 }
@@ -66,9 +68,9 @@ export default function OptionSidebarView({ onClose }) {
     // General
     cupos: true,
     periodos: false,
-    maxHorarios: 5,
-    huecosFinales: -1,
-    huecosIntermedios: -1,
+    maxHorarios: 10,
+    huecosFinales: 2,
+    huecosIntermedios: 2,
     // Orden de los grupos
     prioridadHora: 0,
     prioridadDemanda: 0,
@@ -82,14 +84,17 @@ export default function OptionSidebarView({ onClose }) {
   const [modalConfirmarEliminar, setModalConfirmarEliminar] = useState(false);
   const [modalConfirmarLimpiar, setModalConfirmarLimpiar] = useState(false);
   const [materiaAEliminar, setMateriaAEliminar] = useState(null);
-  const [modalCambioCiclo, setModalCambioCiclo] = useState(false);
+  
+  const [modalCambioContexto, setModalCambioContexto] = useState(false);
   const [cicloAnterior, setCicloAnterior] = useState("");
+  const [carreraAnterior, setCarreraAnterior] = useState(""); // Nuevo estado
 
   const { userData, loading } = useUserData();
 
   // Cargar materias añadidas desde AsyncStorage al inicio
   useEffect(() => {
     loadMateriasAnadidas();
+    loadOpcionesGeneracion();
   }, []);
 
   // Función para cargar las materias guardadas
@@ -107,6 +112,36 @@ export default function OptionSidebarView({ onClose }) {
       console.error("Error al cargar materias añadidas:", error);
     }
   };
+
+  const loadOpcionesGeneracion = async () => {
+    try {
+      const savedOptions = await AsyncStorage.getItem("opcionesGeneracion");
+      if (savedOptions) {
+        setOpcionesGeneracion((prev) => ({
+          ...prev,
+          ...JSON.parse(savedOptions),
+        }));
+        console.log("Opciones cargadas:", JSON.parse(savedOptions));
+      }
+    } catch (error) {
+      console.error("Error al cargar opciones de generación:", error);
+    }
+  };
+  useEffect(() => {
+    const saveOpcionesGeneracion = async () => {
+      try {
+        await AsyncStorage.setItem(
+          "opcionesGeneracion",
+          JSON.stringify(opcionesGeneracion)
+        );
+        // console.log("Opciones actualizadas y guardadas");
+      } catch (error) {
+        console.error("Error al guardar opciones de generación:", error);
+      }
+    };
+
+    saveOpcionesGeneracion();
+  }, [opcionesGeneracion]);
 
   // Función para guardar las materias en AsyncStorage
   const saveMateriasAnadidas = async (materias) => {
@@ -130,6 +165,7 @@ export default function OptionSidebarView({ onClose }) {
     try {
       await AsyncStorage.removeItem("materiasAnadidas");
       await AsyncStorage.removeItem("cicloMaterias");
+      await AsyncStorage.removeItem("carreraMaterias");
       setMateriasAnadidas([]);
       console.log("Todas las materias han sido eliminadas");
     } catch (error) {
@@ -138,74 +174,90 @@ export default function OptionSidebarView({ onClose }) {
     setModalConfirmarLimpiar(false);
   };
 
-  // Función para verificar si el ciclo cambió
-  const verificarCambioCiclo = useCallback(async () => {
-    if (!userData || !userData.calendario) return;
+  // Función para verificar si el ciclo O la carrera cambio
+  const verificarCambioContexto = useCallback(async () => {
+    if (!userData || !userData.calendario || !userData.carrera) return;
 
     try {
       const cicloGuardado = await AsyncStorage.getItem("cicloMaterias");
+      const carreraGuardada = await AsyncStorage.getItem("carreraMaterias");
 
       console.log(
-        "Verificando ciclo - Guardado:",
-        cicloGuardado,
+        "Verificando contexto - Guardado:",
+        { ciclo: cicloGuardado, carrera: carreraGuardada },
         "Actual:",
-        userData.calendario
+        { ciclo: userData.calendario, carrera: userData.carrera }
       );
 
-      if (
-        cicloGuardado &&
-        cicloGuardado.trim() !== userData.calendario.trim()
-      ) {
-        // El ciclo cambió - mostrar modal personalizado
-        console.log("¡Ciclo diferente detectado!");
-        setCicloAnterior(cicloGuardado);
-        setModalCambioCiclo(true);
-      } else if (!cicloGuardado && materiasAnadidas.length > 0) {
-        // No hay ciclo guardado pero hay materias, guardar el ciclo actual
-        console.log("Guardando ciclo actual:", userData.calendario);
-        await AsyncStorage.setItem("cicloMaterias", userData.calendario);
+      // Verificamos si hay discrepancia en Ciclo O en Carrera
+      const cicloDiferente = cicloGuardado && cicloGuardado.trim() !== userData.calendario.trim();
+      const carreraDiferente = carreraGuardada && carreraGuardada.trim() !== userData.carrera.trim();
+
+      if (cicloDiferente || carreraDiferente) {
+        // Detectado cambio de contexto
+        console.log("¡Contexto diferente detectado!");
+        setCicloAnterior(cicloGuardado || userData.calendario); // Fallback por si solo uno es null
+        setCarreraAnterior(carreraGuardada || userData.carrera);
+        setModalCambioContexto(true);
+      } else if ((!cicloGuardado || !carreraGuardada) && materiasAnadidas.length > 0) {
+        // No hay datos guardados pero hay materias, guardar el contexto actual para evitar errores futuros
+        console.log("Guardando contexto actual de referencia");
+        if(!cicloGuardado) await AsyncStorage.setItem("cicloMaterias", userData.calendario);
+        if(!carreraGuardada) await AsyncStorage.setItem("carreraMaterias", userData.carrera);
       }
     } catch (error) {
-      console.error("Error al verificar cambio de ciclo:", error);
+      console.error("Error al verificar cambio de contexto:", error);
     }
   }, [userData, materiasAnadidas.length]);
 
-  // Función para mantener materias del ciclo anterior
+
+  // Función para mantener materias y RESTAURAR la configuración anterior
   const handleMantenerMaterias = async () => {
     try {
-      // Actualizar el ciclo del usuario al ciclo de las materias guardadas
-      await AsyncStorage.setItem("calendario", cicloAnterior);
+      // Restaurar el ciclo del usuario
+      if (cicloAnterior) {
+        await AsyncStorage.setItem("calendario", cicloAnterior);
+      }
+      // Restaurar la carrera del usuario
+      if (carreraAnterior) {
+        await AsyncStorage.setItem("carrera", carreraAnterior);
+      }
 
-      // Recargar la página para que se actualicen todos los datos con el ciclo anterior
+      // Recargar la página para que se actualicen todos los datos con el contexto anterior
       if (typeof window !== "undefined" && window.location) {
         window.location.reload();
       }
 
-      // Cerrar el modal
-      setModalCambioCiclo(false);
+      setModalCambioContexto(false);
     } catch (error) {
       console.error("Error al mantener materias:", error);
     }
   };
 
-  // Función para limpiar materias por cambio de ciclo
-  const handleLimpiarPorCambioCiclo = async () => {
+  // Función para limpiar y redirigir a Login
+  const handleRedirigirLogin = async () => {
     try {
+      // Limpiamos las materias porque no coinciden con el usuario actual
       await AsyncStorage.removeItem("materiasAnadidas");
-      await AsyncStorage.setItem("cicloMaterias", userData.calendario);
+      await AsyncStorage.removeItem("cicloMaterias");
+      await AsyncStorage.removeItem("carreraMaterias");
       setMateriasAnadidas([]);
-      setModalCambioCiclo(false);
+      
+      setModalCambioContexto(false);
+      
+      // Redirigir al login para que el usuario configure bien sus datos
+      router.replace("/"); 
     } catch (error) {
-      console.error("Error al limpiar materias:", error);
+      console.error("Error al limpiar y redirigir:", error);
     }
   };
 
-  // Verificar si el ciclo cambió cuando userData esté disponible
+  // Verificar si el contexto cambió cuando userData esté disponible
   useEffect(() => {
     if (userData && materiasAnadidas.length > 0) {
-      verificarCambioCiclo();
+      verificarCambioContexto();
     }
-  }, [userData, verificarCambioCiclo, materiasAnadidas.length]);
+  }, [userData, verificarCambioContexto, materiasAnadidas.length]);
 
   /*
     Shema Materias:
@@ -229,11 +281,10 @@ export default function OptionSidebarView({ onClose }) {
         .map((materia) => ({
           label: `${materia.clave} - ${materia.nombre}`,
           value: materia.clave,
-          creditos: materia.creditos
+          creditos: materia.creditos,
         }));
       setMaterias(materiaList);
       console.log("Materias obtenidas:", materiaList);
-      // Aquí puedes actualizar el estado con las materias obtenidas
     } catch (error) {
       console.error("Error al obtener las materias:", error);
     } finally {
@@ -272,6 +323,7 @@ export default function OptionSidebarView({ onClose }) {
   }
 ]
     */
+
   const fetchSeccionesData = async (materia) => {
     try {
       const response = await fetch(
@@ -282,9 +334,9 @@ export default function OptionSidebarView({ onClose }) {
     } catch (error) {
       console.error("Error al obtener las secciones:", error);
     }
-  }
-  
-  const fetchSecciones = async (materia) => {
+  };
+
+  const fetchSecciones = async (materia, preferenciasGuardadas = null) => {
     //materia/CUCEI/IL2020/2025B/secciones
     try {
       setLoadingSecciones(true);
@@ -301,13 +353,22 @@ export default function OptionSidebarView({ onClose }) {
       setProfesores(profesoresUnicos);
 
       // Inicializar preferencias si es nueva materia
-      if (editingIndex === null) {
-        const initialPreferences = {};
-        profesoresUnicos.forEach((profesor) => {
-          initialPreferences[profesor] = 0; // 0 = neutral por defecto
-        });
-        setProfesorPreferences(initialPreferences);
-      }
+      const newPreferences = {};
+
+      profesoresUnicos.forEach((profesor) => {
+        // Si existen preferencias guardadas y el profesor está en ellas, usamos su valor.
+        // Si no, lo iniciamos en 0 (Neutro).
+        if (
+          preferenciasGuardadas &&
+          preferenciasGuardadas[profesor] !== undefined
+        ) {
+          newPreferences[profesor] = preferenciasGuardadas[profesor];
+        } else {
+          newPreferences[profesor] = 0;
+        }
+      });
+
+      setProfesorPreferences(newPreferences);
     } catch (error) {
       console.error("Error al obtener las secciones:", error);
     } finally {
@@ -331,21 +392,23 @@ export default function OptionSidebarView({ onClose }) {
       clave: selectedMateria,
       nombreMateria:
         materias.find((m) => m.value === selectedMateria)?.label || "",
-      creditos: 
+      creditos:
         materias.find((m) => m.value === selectedMateria)?.creditos || 0,
       profesores: profesorPreferences,
     };
     console.log("Guardando materia:", materiaData);
-    // Guardar el ciclo actual cuando se añade la primera materia
+    
+    // Guardar ciclo Y carrera cuando se añade la primera materia
     if (materiasAnadidas.length === 0) {
       await AsyncStorage.setItem("cicloMaterias", userData.calendario);
+      await AsyncStorage.setItem("carreraMaterias", userData.carrera);
     }
 
     if (editingIndex !== null) {
       // Editar materia existente
       const nuevasMateriasAnadidas = [...materiasAnadidas];
       nuevasMateriasAnadidas[editingIndex] = materiaData;
-      
+
       setMateriasAnadidas(nuevasMateriasAnadidas);
       setEditingIndex(null);
     } else {
@@ -387,7 +450,7 @@ export default function OptionSidebarView({ onClose }) {
     setProfesorPreferences(materia.profesores);
     setEditingIndex(index);
     setModalVisible(true);
-    fetchSecciones(materia.clave);
+    fetchSecciones(materia.clave, materia.profesores);
   };
 
   // Función para mostrar modal de confirmación de eliminación
@@ -610,25 +673,27 @@ export default function OptionSidebarView({ onClose }) {
         </View>
       </ScrollView>
 
-      {/* MODAL DE CONFIRMACIÓN - CAMBIO DE CICLO */}
+      {/* MODAL DE CONFIRMACIÓN - CAMBIO DE CONTEXTO (CICLO Y/O CARRERA) -- */}
       <BlurModal
-        visible={modalCambioCiclo}
+        visible={modalCambioContexto}
         slideDistance={300}
         containerStyle={styles.modalConfirmacionContainer}
       >
         <Text style={styles.modalConfirmacionTitle}>
-          Cambio de ciclo detectado
+          Datos inconsistentes detectados
         </Text>
         <Text style={styles.modalConfirmacionText}>
-          Las materias guardadas son del ciclo{" "}
-          <Text style={{ fontWeight: "bold" }}>{cicloAnterior}</Text>, pero
-          ahora estás en el ciclo{" "}
-          <Text style={{ fontWeight: "bold" }}>{userData?.calendario}</Text>.
+          Las materias guardadas pertenecen a:{"\n"}
+          Ciclo: <Text style={{ fontWeight: "bold" }}>{cicloAnterior || "Desconocido"}</Text>{"\n"}
+          Carrera: <Text style={{ fontWeight: "bold" }}>{carreraAnterior || "Desconocida"}</Text>
+        </Text>
+        <Text style={styles.modalConfirmacionText}>
+          Pero tu configuración actual es:{"\n"}
+          Ciclo: <Text style={{ fontWeight: "bold" }}>{userData?.calendario}</Text>{"\n"}
+          Carrera: <Text style={{ fontWeight: "bold" }}>{userData?.carrera}</Text>
         </Text>
         <Text style={styles.modalConfirmacionSubtext}>
-          Si mantienes las materias, tu ciclo actual cambiará a{" "}
-          <Text style={{ fontWeight: "bold" }}>{cicloAnterior}</Text>. No puedes
-          tener materias de diferentes ciclos.
+          No puedes mezclar materias de diferentes ciclos o carreras. ¿Qué deseas hacer?
         </Text>
 
         <View style={styles.modalConfirmacionButtons}>
@@ -640,7 +705,10 @@ export default function OptionSidebarView({ onClose }) {
             onPress={handleMantenerMaterias}
           >
             <Text style={styles.modalConfirmacionButtonTextCancel}>
-              Mantener
+              Restaurar materias
+            </Text>
+            <Text style={{fontSize: 10, color: '#666', textAlign: 'center'}}>
+              (Vuelve a la config. anterior)
             </Text>
           </Pressable>
 
@@ -649,10 +717,13 @@ export default function OptionSidebarView({ onClose }) {
               styles.modalConfirmacionButton,
               styles.modalConfirmacionButtonConfirm,
             ]}
-            onPress={handleLimpiarPorCambioCiclo}
+            onPress={handleRedirigirLogin}
           >
             <Text style={styles.modalConfirmacionButtonTextConfirm}>
-              Limpiar
+              Cambiar / Login
+            </Text>
+            <Text style={{fontSize: 10, color: '#FFF', textAlign: 'center'}}>
+              (Borra materias e ir a Login)
             </Text>
           </Pressable>
         </View>
@@ -875,7 +946,7 @@ export default function OptionSidebarView({ onClose }) {
               {tooltipVisible === "maxHorarios" && (
                 <Text style={styles.tooltipText}>
                   El programa dejará de buscar una vez que alcance este número
-                  de combinaciones válidas. Usa -1 para &quot;infinito&quot;.
+                  de combinaciones válidas.
                 </Text>
               )}
             </View>
@@ -1244,6 +1315,7 @@ export default function OptionSidebarView({ onClose }) {
           <Pressable
             style={styles.modalOpcionesButtonPrimary}
             onPress={async () => {
+
               try {
                 setLoadingGeneracion(true);
 
@@ -1281,7 +1353,9 @@ export default function OptionSidebarView({ onClose }) {
                   : null;
 
                 // 3. Run Generation (this runs the ported Apeiron logic)
-                const bloqueosHorarioData = mapDisabledCellsToHorarioData(horariosNoDisponibles);
+                const bloqueosHorarioData = mapDisabledCellsToHorarioData(
+                  horariosNoDisponibles
+                );
                 console.log("Bloqueos de horario:", bloqueosHorarioData);
 
                 const generatedSchedules = generateSchedules(
@@ -1338,9 +1412,7 @@ export default function OptionSidebarView({ onClose }) {
 
           <View />
           <View style={{ alignItems: "center", marginTop: 10 }}>
-            <Pressable
-              onPress={() => router.push("/Tabs/suport")}
-            >
+            <Pressable onPress={() => router.push("/Tabs/suport")}>
               <Text style={{ color: "red", backgroundColor: "cyan" }}>
                 Ir a pagina de sporte (por ahora así)
               </Text>
@@ -1541,6 +1613,25 @@ export default function OptionSidebarView({ onClose }) {
           </Pressable>
         </View>
       </BlurModal>
+
+      {/* MODAL DE CARGA A PANTALLA COMPLETA (FULL SCREEN)  */}
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={loadingGeneracion} // Se activa cuando empieza la generación
+        statusBarTranslucent={true} // Cubre también la barra de estado
+        onRequestClose={() => {}}   // Evita que se cierre con el botón atrás de Android
+      >
+        <View style={styles.loaderOverlay}>
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.loaderTitle}>Generando Horarios</Text>
+            <Text style={styles.loaderText}>
+              Buscando las mejores combinaciones...
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2220,5 +2311,39 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  // Estilos para el Loader Pantalla Completa
+  loaderOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)", // Fondo oscuro semitransparente
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  loaderContainer: {
+    backgroundColor: "#333",
+    padding: 25,
+    borderRadius: 15,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  loaderTitle: {
+    marginTop: 15,
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "white",
+  },
+  loaderText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#ccc",
+    textAlign: "center",
   },
 });
