@@ -280,7 +280,7 @@ export function WeeklySchedule() {
                             onPress={seleccionarMatutino}
                         >
                             <Image 
-                                source={require('@/assets/images/sun.svg')}
+                                source={require('@/assets/images/sun_day.svg')}
                                 style={styles.horarioButtonIcon}
                                 contentFit="contain"
                             />
@@ -292,7 +292,7 @@ export function WeeklySchedule() {
                             onPress={seleccionarVespertino}
                         >
                             <Image 
-                                source={require('@/assets/images/moon.svg')}
+                                source={require('@/assets/images/moon_day.svg')}
                                 style={styles.horarioButtonIcon}
                                 contentFit="contain"
                             />

@@ -56,7 +56,7 @@ export default function OptionSidebarView({ onClose }) {
   const [profesorPreferences, setProfesorPreferences] = useState({});
   const [loadingSecciones, setLoadingSecciones] = useState(false);
   const [loadingMaterias, setLoadingMaterias] = useState(false);
-  const [loadingGeneracion, setLoadingGeneracion] = useState(false);
+  const [loadingGeneracion, setLoadingGeneracion] = useState(true);
 
   // Estado para guardar las materias añadidas
   const [materiasAnadidas, setMateriasAnadidas] = useState([]);
@@ -96,6 +96,7 @@ export default function OptionSidebarView({ onClose }) {
     loadMateriasAnadidas();
     loadOpcionesGeneracion();
   }, []);
+
 
   // Función para cargar las materias guardadas
   const loadMateriasAnadidas = async () => {
@@ -246,9 +247,9 @@ export default function OptionSidebarView({ onClose }) {
       setModalCambioContexto(false);
       
       // Redirigir al login para que el usuario configure bien sus datos
-      router.replace("/"); 
+      //router.replace("/"); 
     } catch (error) {
-      console.error("Error al limpiar y redirigir:", error);
+      console.error("Error al limpiar:", error);
     }
   };
 
@@ -622,7 +623,7 @@ export default function OptionSidebarView({ onClose }) {
         )}
 
         {/* Botón Preferencias Horarios - Solo visible en móviles */}
-        {isMobile && (
+        {isMobile &&  (
           <View style={styles.preferenciasHorariosContainer}>
             <Pressable
               style={styles.preferenciasHorariosButton}
@@ -720,10 +721,10 @@ export default function OptionSidebarView({ onClose }) {
             onPress={handleRedirigirLogin}
           >
             <Text style={styles.modalConfirmacionButtonTextConfirm}>
-              Cambiar / Login
+              Borrar y cambiar
             </Text>
             <Text style={{fontSize: 10, color: '#FFF', textAlign: 'center'}}>
-              (Borra materias e ir a Login)
+              (Borra materias y mantiene configuración actual)
             </Text>
           </Pressable>
         </View>
@@ -1618,13 +1619,13 @@ export default function OptionSidebarView({ onClose }) {
       <Modal
         transparent={true}
         animationType="fade"
-        visible={loadingGeneracion} // Se activa cuando empieza la generación
+        visible={loadingGeneracion}
         statusBarTranslucent={true} // Cubre también la barra de estado
         onRequestClose={() => {}}   // Evita que se cierre con el botón atrás de Android
       >
         <View style={styles.loaderOverlay}>
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#fff" />
+            <ActivityIndicator size="large" color="#007AFF" />
             <Text style={styles.loaderTitle}>Generando Horarios</Text>
             <Text style={styles.loaderText}>
               Buscando las mejores combinaciones...
@@ -2321,7 +2322,7 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   loaderContainer: {
-    backgroundColor: "#333",
+    backgroundColor: "#fff",
     padding: 25,
     borderRadius: 15,
     alignItems: "center",
@@ -2342,8 +2343,9 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     marginTop: 8,
-    fontSize: 14,
-    color: "#ccc",
+    fontSize: 16
+    ,
+    color: "#000",
     textAlign: "center",
   },
 });
