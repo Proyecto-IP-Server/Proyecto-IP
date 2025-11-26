@@ -1,437 +1,649 @@
-import { Pressable, View, Text, StyleSheet, ScrollView, TextInput, Linking, SafeAreaView, TouchableOpacity } from 'react-native';
-import { useState, useMemo } from 'react';
-import { useRouter } from 'expo-router';
-import { Dropdown } from 'react-native-element-dropdown';
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  Pressable,
+  Dimensions,
+  Modal,
+  TouchableOpacity,
+  useWindowDimensions,
+  Platform,
+  KeyboardAvoidingView,
+} from "react-native";
+import { Image } from "expo-image";
+import { useRouter, useNavigation } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Dropdown } from "react-native-element-dropdown";
 
-// --- Constantes de Estilo para el Tono Amigable ---
-const PRIMARY_COLOR = '#007AFF'; // Azul
-const ACCENT_COLOR = '#4CAF50'; // Verde
+// --- Constantes de Estilo ---
+const PRIMARY_COLOR = "#007AFF";
 
-// --- Componente: Botón de Regresar a Home (NUEVO) ---
-const HeaderButton = ({ router }) => (
-    <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => router.push('/Tabs/home')}
-    >
-        <Text style={styles.backButtonText}>🏠 Home</Text>
-    </TouchableOpacity>
-);
-
-// --- Datos para el Dropdown ---
+// --- Categorías ---
 const categoryData = [
-    { label: 'Todas las Categorías', value: 'Todos' },
-    { label: '💡 Uso Básico', value: 'Uso General' },
-    { label: '🔑 Mi Cuenta', value: 'Cuenta' },
-    { label: '⭐ Funciones Chidas', value: 'Funcionalidades' },
-    { label: '🚨 Ayuda y Reportes', value: 'Soporte' },
-    { label: '🔒 Reglas y Privacidad', value: 'Privacidad' }, 
+  { label: "Todas las Categorías", value: "Todos" },
+  { label: "Home", value: "Home" },
+  { label: "Reseñas", value: "Reseñas" },
+  { label: "FAQ", value: "FAQ" },
+  { label: "Soporte", value: "Soporte" },
 ];
 
-// --- 1. Datos de las Preguntas Frecuentes ---
+// --- Datos de FAQ ---
 const faqData = [
-    // --- 🔑 Mi Cuenta (¡Entra Rápido!) ---
-    { 
-        id: '1', 
-        category: 'Cuenta', 
-        question: '¿Cómo entro a la app por primera vez?', 
-        answer: '¡Fácil! Usa tu **correo institucional**. Te mandaremos un código secreto 🤫 al instante para que inicies sesión o te registres. ¡No hay contraseñas raras!' 
-    },
-    { 
-        id: '2', 
-        category: 'Cuenta', 
-        question: 'Me registré, pero no veo el código, ¿qué onda?', 
-        answer: 'Tranquilo/a. Checa tu bandeja de **spam** o correo no deseado. Si aún no lo encuentras, confirma que usaste tu **correo de la uni** y pide que te reenvíen el código. ¡A veces se esconde! 🧐' 
-    },
-    // --- 💡 Uso Básico (Para Empezar) ---
-    { 
-        id: '4', 
-        category: 'Uso General', 
-        question: '¿Qué puedo hacer aquí en general?', 
-        answer: 'Puedes **buscar** 🔎 dónde comer o estudiar, **guardar** tus lugares favoritos y **dejar reseñas** ⭐️. Además, ¡puedes ver todo lo que has hecho en tu historial!' 
-    },
-    
-    
-    { 
-        id: '7', 
-        category: 'Uso General', 
-        question: '¿La app sirve si no tengo internet (sin datos)?', 
-        answer: 'Necesitas conexión para buscar cosas nuevas y subir tus reseñas. Pero los lugares que ya viste o guardaste estarán disponibles para leerlos por un rato, ¡por si acaso!' 
-    },
-    { 
-        id: '8', 
-        category: 'Uso General', 
-        question: 'Subí una foto/reseña y no sale en mi perfil, ¿ya la perdí?', 
-        answer: '¡No! La reseña sale al instante en la página del lugar. Tu historial personal se actualiza cada **10 minutos** para que la app no se ponga lenta. Dale un chance.' 
-    },
-    // --- ⭐ Dejar Reseñas y Funciones Chidas ---
-    { 
-        id: '9', 
-        category: 'Funcionalidades', 
-        question: '¿Cómo pongo mi calificación o reseña?', 
-        answer: 'En la página del local, busca el botón **"Dejar Reseña"**. Elige tus estrellas y escribe tu opinión. ¡Sé útil con los demás estudiantes!' 
-    },
-    { 
-        id: '10', 
-        category: 'Funcionalidades', 
-        question: 'Me equivoqué, ¿puedo cambiar o borrar mi reseña?', 
-        answer: 'Claro. Ve a tu "Perfil", busca la reseña y ahí verás la opción **"Editar"** o **"Eliminar"** desde el menú de la reseña.' 
-    },
-    { 
-        id: '11', 
-        category: 'Funcionalidades', 
-        question: '¿Cómo guardo un lugar que quiero visitar después (como una "lista de pendientes")?', 
-        answer: 'Usa la **Lista de Seguimiento** (o *Pendientes*). En la página del local, toca el ícono de la **bandera** (🚩) o el marcador. ¡Así no se te olvida!' 
-    },
-    { 
-        id: '12', 
-        category: 'Funcionalidades', 
-        question: '¿Qué significa el puntaje de estrellas del lugar?', 
-        answer: 'Es el **promedio de TODAS las calificaciones** que han dejado los estudiantes. Más estrellas = mejor experiencia, según la comunidad. 💯' 
-    },
-    { 
-        id: '13', 
-        category: 'Funcionalidades', 
-        question: '¿Puedo subir fotos a mis reseñas?', 
-        answer: '¡Sí! Al hacer o editar la reseña, puedes subir hasta **5 fotos**. Solo asegúrate que sean fotos claras y que ayuden a describir el lugar.' 
-    },
-    { 
-        id: '14', 
-        category: 'Funcionalidades', 
-        question: '¿Qué formato deben tener mis fotos (tamaño, tipo)?', 
-        answer: 'Usa **JPG o PNG**. El límite es de **5MB** por foto. Si es más grande, la app la hará más pequeña automáticamente.' 
-    },
-    // --- 🚨 Ayuda y Reportes ---
-    { 
-        id: '16', 
-        category: 'Soporte', 
-        question: '¿Cómo contacto al equipo de soporte técnico?', 
-        answer: (router) => (
-            <View>
-                <Text style={faqStyles.answerText}>
-                    Si tu duda no se resolvió aquí, puedes usar el formulario de contacto directo o escribirnos un correo.
-                </Text>
-                <Pressable 
-                    style={styles.helpButton} 
-                    onPress={() => router.push('/Tabs/support')}
-                >
-                    <Text style={styles.helpButtonText}>
-                        🚨 Ir a Ayuda y Soporte 🚨
-                    </Text>
-                </Pressable>
-                <Text style={faqStyles.answerTextSmall}>
-                    También puedes escribirnos a: mihorarioudg@gmail.com
-                </Text>
-            </View>
-        )
-    },
-    // --- 🔒 Privacidad y Reglas ---
-    { 
-        id: '17', 
-        category: 'Privacidad', 
-        question: '¿Qué hacen con mis datos y mis reseñas?', 
-        answer: 'Tus datos se usan solo para que la app funcione mejor para ti. Tus reseñas son públicas, pero puedes ser anónimo/a si quieres. Revisa la **Política de Privacidad** en "Configuración".' 
-    },
-    { 
-        id: '18', 
-        category: 'Privacidad', 
-        question: '¿Qué cosas NO debo poner en mis reseñas (contenido prohibido)?', 
-        answer: 'Sé buena onda. Prohibido: **insultos, acoso, contenido ilegal, spam** y publicar **datos personales de otros**. ¡Respeto ante todo!' 
-    },
+  {
+    id: "1",
+    category: "Home",
+    question: "¿Cómo entro a la app por primera vez?",
+    answer:
+      "¡Fácil! Usa tu **correo institucional**. Te mandaremos un código secreto al instante para que inicies sesión. ¡No hay contraseñas raras!",
+  },
+  {
+    id: "2",
+    category: "Home",
+    question: "No me llega el código de acceso",
+    answer:
+      "Checa tu bandeja de **spam** o correo no deseado. Confirma que escribiste bien tu **correo de la uni**. Si no llega, intenta pedirlo de nuevo.",
+  },
+  {
+    id: "3",
+    category: "Home",
+    question: "¿La app funciona sin internet?",
+    answer:
+      "Necesitas conexión para buscar cosas nuevas y entrar. Pero los lugares que ya viste se quedan guardados un rato para que los leas offline.",
+  },
+  {
+    id: "4",
+    category: "Home",
+    question: "¿Cómo guardo un lugar para después?",
+    answer:
+      "Usa la **Lista de Seguimiento**. En la página del local, toca el ícono de la bandera o marcador. Aparecerá en tu perfil.",
+  },
+  {
+    id: "5",
+    category: "Reseñas",
+    question: "¿Cómo dejo una opinión?",
+    answer:
+      'En la página del profesor o lugar, busca el botón **"Dejar Reseña"**. Selecciona las estrellas y escribe tu experiencia.',
+  },
+  {
+    id: "6",
+    category: "Reseñas",
+    question: "¿Puedo subir fotos?",
+    answer:
+      "¡Sí! Puedes subir hasta **5 fotos** por reseña. Asegúrate de que sean formato **JPG o PNG** y pesen menos de 5MB.",
+  },
+  {
+    id: "7",
+    category: "Reseñas",
+    question: "Me equivoqué, ¿puedo editar mi reseña?",
+    answer:
+      'Claro. Ve a tu Perfil o busca tu reseña en la lista y selecciona la opción de **"Editar"**. Tendrás que validar tu correo nuevamente por seguridad.',
+  },
+  {
+    id: "8",
+    category: "Reseñas",
+    question: "¿Qué significan las estrellas?",
+    answer:
+      "Es el promedio de **todas las calificaciones** de los estudiantes. Más estrellas significan una mejor experiencia general.",
+  },
+  {
+    id: "9",
+    category: "FAQ",
+    question: "¿Qué puedo hacer en esta app?",
+    answer:
+      "Puedes **buscar** dónde comer o estudiar, ver **horarios**, leer **opiniones** de otros alumnos y compartir las tuyas.",
+  },
+  {
+    id: "10",
+    category: "FAQ",
+    question: "¿La información se actualiza sola?",
+    answer:
+      "Tu historial y las reseñas nuevas se actualizan automáticamente cada **10 minutos** para no alentar tu teléfono.",
+  },
+  {
+    id: "11",
+    category: "Soporte",
+    question: "¿Cómo contacto a soporte?",
+    answer:
+      "Si tienes problemas técnicos, usa el formulario en la pestaña de Soporte o escríbenos a **mihorarioudg@gmail.com**.",
+  },
+  {
+    id: "12",
+    category: "Soporte",
+    question: "¿Mis datos son privados?",
+    answer:
+      "Sí. Tus reseñas son públicas, pero tus datos personales se usan solo para validar que eres estudiante. Revisa la **Política de Privacidad**.",
+  },
+  {
+    id: "13",
+    category: "Soporte",
+    question: "¿Qué contenido está prohibido?",
+    answer:
+      "Prohibido el **spam**, los **insultos**, el acoso y publicar información privada de otros. Mantengamos una comunidad respetuosa.",
+  },
 ];
 
+// --- Componente de Texto con Negritas ---
+const FormattedText = ({ text, style }) => {
+  if (!text) return null;
+  if (typeof text !== "string") return text;
 
-// --- 2. Componente de Ítem Individual del FAQ ---
-const FAQItem = ({ question, answer, router }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+  const parts = text.split(/(\*\*.*?\*\*)/g);
 
-    const renderAnswer = typeof answer === 'function' ? answer(router) : (
-        <Text style={faqStyles.answerText}>
-            {answer}
-        </Text>
-    );
-
-    return (
-        <View style={faqStyles.itemContainer}>
-            <Pressable 
-                onPress={() => setIsExpanded(!isExpanded)} 
-                style={faqStyles.questionButton}
-            >
-                <Text style={faqStyles.questionText}>{question}</Text>
-                <Text style={faqStyles.icon}>
-                    {isExpanded ? '▲' : '▼'}
-                </Text>
-            </Pressable>
-            
-            {isExpanded && (
-                <View style={faqStyles.answerContainer}>
-                    {renderAnswer} 
-                </View>
-            )}
-        </View>
-    );
+  return (
+    <Text style={style}>
+      {parts.map((part, index) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return (
+            <Text key={index} style={{ fontWeight: "bold", color: "#333" }}>
+              {part.slice(2, -2)}
+            </Text>
+          );
+        }
+        return <Text key={index}>{part}</Text>;
+      })}
+    </Text>
+  );
 };
 
-// --- 3. Componente Principal FAQ (Estructura con botón de regreso) ---
-export default function FAQ() {
-    const router = useRouter();
-    const [selectedCategory, setSelectedCategory] = useState('Todos'); 
-    const [searchText, setSearchText] = useState(''); 
+// --- Item FAQ ---
+const FAQItem = ({ question, answer }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
-    const filteredFaqs = useMemo(() => {
-        let results = faqData;
-        if (selectedCategory !== 'Todos') {
-            const categoryMap = {
-                'Mi Cuenta': 'Cuenta',
-                'Uso Básico': 'Uso General',
-                'Funciones Chidas': 'Funcionalidades',
-                'Ayuda y Reportes': 'Soporte',
-                'Reglas y Privacidad': 'Privacidad'
-            };
-            const actualCategory = categoryMap[selectedCategory] || selectedCategory;
+  return (
+    <View style={faqStyles.card}>
+      <Pressable
+        onPress={() => setIsExpanded(!isExpanded)}
+        style={faqStyles.cardHeader}
+      >
+        <Text style={faqStyles.questionText} numberOfLines={2}>
+          {question}
+        </Text>
+        <Text style={faqStyles.expandIcon}>{isExpanded ? "▲" : "▼"}</Text>
+      </Pressable>
 
-            results = results.filter(item => item.category === actualCategory);
-        }
-        
-        if (searchText.trim() !== '') {
-            const lowercasedSearch = searchText.toLowerCase().trim();
-            results = results.filter(item => 
-                item.question.toLowerCase().includes(lowercasedSearch) ||
-                (typeof item.answer === 'string' && item.answer.toLowerCase().includes(lowercasedSearch))
-            );
-        }
-        return results;
-    }, [selectedCategory, searchText]);
+      {isExpanded && (
+        <View style={faqStyles.cardContent}>
+          <FormattedText text={answer} style={faqStyles.answerText} />
+        </View>
+      )}
+    </View>
+  );
+};
 
-    return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#EAEAEA' }}>
-            {/* Contenedor del Botón de Regreso y Título */}
-            <View style={styles.headerContainer}>
-                <HeaderButton router={router} />
-                <Text style={styles.mainTitle}> PREGUNTAS FRECUENTES (FAQ)</Text>
-            </View>
+export default function FAQView() {
+  const router = useRouter();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
-            <View style={styles.contentContainer}>
-                <Text style={styles.introText}>
-                    ¡Relájate! Aquí te explicamos **fácil y rápido** cómo usar la app. ¡Pregunta lo que sea! 👇
-                </Text>
+  // Responsive
+  const [screenWidth, setScreenWidth] = useState(
+    Dimensions.get("window").width
+  );
+  const isMobileScreen = screenWidth < 768;
+  const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
 
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="🔎 Busca algo rápido (ej. 'código', 'foto', 'soporte')"
-                    placeholderTextColor="#A0A0A0"
-                    value={searchText}
-                    onChangeText={setSearchText}
+  // Filtros
+  const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [searchText, setSearchText] = useState("");
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener("change", ({ window }) => {
+      setScreenWidth(window.width);
+    });
+    return () => subscription?.remove();
+  }, []);
+
+  // --- Navegación ---
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/");
+    }
+  };
+
+  const handleNavigation = (route) => {
+    setMobileMenuVisible(false);
+    router.push(route);
+  };
+
+  // --- Lógica de Filtrado ---
+  const filteredFaqs = useMemo(() => {
+    let results = faqData;
+
+    if (selectedCategory !== "Todos") {
+      results = results.filter((item) => item.category === selectedCategory);
+    }
+
+    if (searchText.trim() !== "") {
+      const lowercasedSearch = searchText.toLowerCase().trim();
+      results = results.filter(
+        (item) =>
+          item.question.toLowerCase().includes(lowercasedSearch) ||
+          item.answer.toLowerCase().includes(lowercasedSearch)
+      );
+    }
+    return results;
+  }, [selectedCategory, searchText]);
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* --- HEADER --- */}
+      <View style={styles.header}>
+        {/* Botón Izquierdo: Regresar */}
+        <View style={{ minWidth: 80 }}>
+          <Pressable style={styles.backButton} onPress={handleBack}>
+            <Image
+              source={require("@/assets/images/arrow-left.svg")}
+              style={{ width: 18, height: 18 }}
+              contentFit="contain"
+            />
+            <Text style={styles.backButtonText}>Regresar</Text>
+          </Pressable>
+        </View>
+
+        {/* Centro: Título SOLICITADO */}
+        <Text
+          style={[
+            styles.headerTitle,
+            // Aplicamos la lógica de tamaño dinámico aquí
+            { fontSize: isMobileScreen ? 18 : 22 },
+          ]}
+        >
+          Preguntas Frecuentes
+        </Text>
+
+        {/* Botón Derecha: Menú o Navegación */}
+        <View
+          style={{
+            minWidth: isMobileScreen ? 40 : "auto",
+            alignItems: "flex-end",
+          }}
+        >
+          {isMobileScreen ? (
+            <Pressable
+              style={[
+                styles.navButton,
+                { backgroundColor: mobileMenuVisible ? "#0056b3" : "#007AFF" },
+              ]}
+              onPress={() => setMobileMenuVisible(true)}
+            >
+              <Text style={styles.navButtonText}>Menú</Text>
+              <Image
+                source={require("@/assets/images/hamburger_white.svg")}
+                style={styles.iconStyles} // Sin tintColor en el estilo
+                contentFit="contain"
+              />
+            </Pressable>
+          ) : (
+            <View style={styles.desktopNavContainer}>
+              <Pressable
+                style={styles.navButton}
+                onPress={() => handleNavigation("/Tabs/home")}
+              >
+                <Image
+                  source={require("@/assets/images/home.svg")}
+                  style={styles.iconStyles}
+                  contentFit="contain"
                 />
+                <Text style={styles.navButtonText}>Inicio</Text>
+              </Pressable>
 
-                <Dropdown
-                    style={styles.dropdown}
-                    placeholderStyle={styles.placeholderStyle}
-                    selectedTextStyle={styles.selectedTextStyle}
-                    data={categoryData}
-                    maxHeight={300}
-                    labelField="label"
-                    valueField="value"
-                    placeholder="🚀 Filtra por tema (¡lo más fácil!)"
-                    value={selectedCategory}
-                    onChange={item => {
-                        const cleanValue = item.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚ\s]/g, '').trim(); 
-                        setSelectedCategory(cleanValue);
-                    }}
+              <Pressable
+                style={styles.navButton}
+                onPress={() => handleNavigation("/Tabs/reviews")}
+              >
+                <Image
+                  source={require("@/assets/images/clipboard.svg")}
+                  style={styles.iconStyles}
+                  contentFit="contain"
                 />
-                
-                <ScrollView style={styles.scrollView}>
-                    {filteredFaqs.map(item => (
-                        <FAQItem 
-                            key={item.id} 
-                            question={item.question} 
-                            answer={item.answer} 
-                            router={router} 
-                        />
-                    ))}
-                    {filteredFaqs.length === 0 && (
-                        <Text style={styles.noResultsText}>
-                            ¡Ups! No encontramos nada con eso. Intenta con otra palabra. 🤔
-                        </Text>
-                    )}
-                </ScrollView>
-                
-                {/* ❌ BOTÓN DE "VER RESEÑAS" ELIMINADO COMPLETAMENTE ❌ */}
+                <Text style={styles.navButtonText}>Reseñas</Text>
+              </Pressable>
 
+              <Pressable
+                style={styles.navButton}
+                onPress={() => handleNavigation("/Tabs/suport")}
+              >
+                <Image
+                  source={require("@/assets/images/question.svg")}
+                  style={styles.iconStyles}
+                  contentFit="contain"
+                />
+                <Text style={styles.navButtonText}>Soporte</Text>
+              </Pressable>
             </View>
-        </SafeAreaView>
-    );
+          )}
+        </View>
+      </View>
+
+      {/* --- MENU MÓVIL --- */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={mobileMenuVisible}
+        statusBarTranslucent={true}
+        onRequestClose={() => setMobileMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setMobileMenuVisible(false)}
+        >
+          <View style={[styles.mobileDropdown, { top: insets.top + 55 }]}>
+            <TouchableOpacity
+              style={styles.mobileMenuItem}
+              onPress={() => handleNavigation("/Tabs/home")}
+            >
+              <Text style={styles.mobileMenuText}>Inicio</Text>
+            </TouchableOpacity>
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.mobileMenuItem}
+              onPress={() => handleNavigation("/Tabs/reviews")}
+            >
+              <Text style={styles.mobileMenuText}>Reseñas</Text>
+            </TouchableOpacity>
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.mobileMenuItem}
+              onPress={() => handleNavigation("/Tabs/suport")}
+            >
+              <Text style={styles.mobileMenuText}>Soporte</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* --- CONTENIDO --- */}
+      <View style={styles.contentWrapper}>
+        <View style={styles.controlsContainer}>
+          <Text style={styles.sectionLabel}>Buscador y Filtros</Text>
+
+          <View style={styles.searchContainer}>
+            <Image
+              source={require("@/assets/images/magnifer.svg")}
+              style={styles.searchIcon}
+              contentFit="contain"
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Escribe tu duda aquí..."
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholderTextColor="#888"
+            />
+          </View>
+
+          <Dropdown
+            style={styles.dropdown}
+            placeholderStyle={styles.placeholderStyle}
+            selectedTextStyle={styles.selectedTextStyle}
+            data={categoryData}
+            maxHeight={300}
+            labelField="label"
+            valueField="value"
+            placeholder="Todas las Categorías"
+            value={selectedCategory}
+            onChange={(item) => setSelectedCategory(item.value)}
+          />
+        </View>
+
+        <ScrollView
+          style={styles.scrollview}
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredFaqs.map((item) => (
+            <FAQItem
+              key={item.id}
+              question={item.question}
+              answer={item.answer}
+            />
+          ))}
+
+          {filteredFaqs.length === 0 && (
+            <Text style={styles.emptyText}>
+              No encontramos resultados. Intenta con otra palabra.
+            </Text>
+          )}
+        </ScrollView>
+      </View>
+    </View>
+  );
 }
 
-// --- 4. Estilos (Ajustados para el nuevo Header) ---
 const faqStyles = StyleSheet.create({
-    itemContainer: {
-        width: '100%',
-        marginVertical: 8, 
-        backgroundColor: '#fff',
-        borderRadius: 12, 
-        overflow: 'hidden',
-        borderLeftWidth: 6, 
-        borderLeftColor: PRIMARY_COLOR, 
-        shadowColor: "#000", 
-        shadowOffset: { width: 0, height: 4 }, 
-        shadowOpacity: 0.2, 
-        shadowRadius: 5.46,
-        elevation: 8,
-    },
-    questionButton: {
-        padding: 18, 
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#fff', 
-    },
-    questionText: {
-        fontSize: 17, 
-        fontWeight: '700', 
-        color: '#333',
-        flexShrink: 1,
-    },
-    icon: {
-        fontSize: 16, 
-        fontWeight: 'bold',
-        marginLeft: 10,
-        color: PRIMARY_COLOR, 
-    },
-    answerContainer: {
-        padding: 18,
-        paddingTop: 0,
-        backgroundColor: '#F7F7F7', 
-        borderTopWidth: 1,
-        borderTopColor: '#E0E0E0',
-    },
-    answerText: {
-        fontSize: 15,
-        color: '#555',
-        lineHeight: 24, 
-        marginBottom: 10, 
-    },
-    answerTextSmall: {
-        fontSize: 13,
-        color: '#888',
-        marginTop: 5,
-        lineHeight: 20, 
-    }
+  card: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 5,
+    borderLeftColor: PRIMARY_COLOR,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    overflow: "hidden",
+  },
+  cardHeader: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#fff",
+  },
+  questionText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#333",
+    flex: 1,
+    paddingRight: 10,
+  },
+  expandIcon: {
+    fontSize: 16,
+    color: PRIMARY_COLOR,
+    fontWeight: "bold",
+  },
+  cardContent: {
+    width: "100%",
+    padding: 16,
+    paddingTop: 0,
+    backgroundColor: "#fff",
+  },
+  answerText: {
+    fontSize: 14,
+    color: "#444",
+    lineHeight: 22,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#f5f5f5",
+    paddingTop: 12,
+  },
 });
 
 const styles = StyleSheet.create({
-    // Contenedor principal para SafeAreaView
-    container:{
-        flex: 1,
-        width:'100%',
-        backgroundColor: '#EAEAEA', 
-    },
-    // Contenedor que sostiene el resto de los elementos (Search, Dropdown, ScrollView)
-    contentContainer: {
-        flex: 1,
-        width: '100%',
-        paddingHorizontal: 20,
-        paddingTop: 10, // Menos padding aquí porque el título ya tiene el suyo
-        alignItems: 'center',
-    },
-    // Contenedor del encabezado para alinear el botón y el título
-    headerContainer: {
-        width: '100%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 10,
-        backgroundColor: '#EAEAEA',
-        position: 'relative',
-    },
-    // NUEVO: Botón de regresar a Home (arriba a la izquierda)
-    backButton: {
-        position: 'absolute',
-        left: 20,
-        top: 25,
-        padding: 8,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-        elevation: 2,
-    },
-    backButtonText: {
-        color: PRIMARY_COLOR,
-        fontWeight: '700',
-        fontSize: 15,
-    },
-    mainTitle: { 
-        fontSize: 24,
-        fontWeight: '900',
-        color: PRIMARY_COLOR,
-        textAlign: 'center',
-    },
-    introText: {
-        marginBottom: 20,
-        textAlign: 'center',
-        paddingHorizontal: 10,
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#6c757d',
-    },
-    searchInput: {
-        width: '100%',
-        height: 55,
-        borderColor: PRIMARY_COLOR,
-        borderWidth: 2, 
-        borderRadius: 10,
-        paddingHorizontal: 15,
-        marginBottom: 15, 
-        backgroundColor: 'white',
-        fontSize: 17,
-    },
-    dropdown: {
-        width: '100%',
-        height: 55,
-        borderColor: PRIMARY_COLOR,
-        borderWidth: 1,
-        borderRadius: 10,
-        paddingHorizontal: 15,
-        marginBottom: 20,
-        backgroundColor: 'white',
-    },
-    placeholderStyle: {
-        fontSize: 17,
-        color: PRIMARY_COLOR, 
-        fontWeight: '600',
-    },
-    selectedTextStyle: {
-        fontSize: 17,
-        color: '#333',
-        fontWeight: '600',
-    },
-    scrollView: {
-        width: '100%',
-        flex: 1,
-        marginBottom: 20,
-    },
-    noResultsText: {
-        textAlign: 'center',
-        marginTop: 40,
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#999',
-    },
-    helpButton: {
-        backgroundColor: PRIMARY_COLOR, 
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 5,
-        marginBottom: 5,
-    },
-    helpButtonText: {
-        color: 'white',
-        fontWeight: '700',
-        fontSize: 15,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f7",
+  },
+  header: {
+    padding: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    justifyContent: "space-between",
+    height: 60,
+  },
+  // ESTILO HEADER TITLE SOLICITADO
+  headerTitle: {
+    fontWeight: "bold",
+    color: "#333",
+    flex: 1,
+    textAlign: "center", // Agregado para centrar
+  },
+  backButton: {
+    backgroundColor: PRIMARY_COLOR,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+  },
+  backButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  desktopNavContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  navButton: {
+    backgroundColor: PRIMARY_COLOR,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  navButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  iconStyles: {
+    width: 18,
+    height: 18,
+    tintColor: "#fff",
+  },
+  // Menu Movil
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+  },
+  mobileDropdown: {
+    marginRight: 10,
+    backgroundColor: "white",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 10,
+    width: 150,
+  },
+  mobileMenuItem: {
+    padding: 12,
+    alignItems: "center",
+  },
+  mobileMenuText: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#eee",
+    width: "100%",
+  },
+  // Contenido
+  contentWrapper: {
+    flex: 1,
+    width: "100%",
+  },
+  controlsContainer: {
+    padding: 16,
+    width: "100%",
+    maxWidth: 800,
+    alignSelf: "center",
+    gap: 12,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+    marginLeft: 4,
+    marginBottom: -5,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#bbb",
+    height: 50,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+    tintColor: "#666",
+  },
+  searchInput: {
+    flex: 1,
+    height: "100%",
+    fontSize: 16,
+    paddingVertical: 0,
+    color: "#333",
+  },
+  dropdown: {
+    height: 50,
+    borderColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#fff",
+  },
+  placeholderStyle: {
+    fontSize: 16,
+    color: "#666",
+  },
+  selectedTextStyle: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
+  },
+  scrollview: {
+    width: "100%",
+  },
+  scrollContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+    width: "100%",
+    maxWidth: 800,
+    alignSelf: "center",
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 50,
+    fontSize: 16,
+    color: "#999",
+  },
 });

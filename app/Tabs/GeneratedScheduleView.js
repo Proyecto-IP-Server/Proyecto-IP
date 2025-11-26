@@ -472,33 +472,62 @@ export default function GeneratedScheduleView() {
                 {selectedMateria.numero && (
                   <View style={styles.modalColumn}>
                     <Text style={styles.modalLabel}>Sección</Text>
-                    <Text style={styles.modalValue}>
-                      {selectedMateria.numero}
-                    </Text>
+                    <View style={styles.datosContainer}>
+                      <Text style={styles.modalValue}>
+                        {selectedMateria.numero}
+                      </Text>
+                    </View>
                   </View>
                 )}
 
                 <View style={styles.modalColumn}>
                   <Text style={styles.modalLabel}>Créditos</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedMateria.creditos}
-                  </Text>
+                  <View style={styles.datosContainer}>
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.creditos}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
               {/* Profesor */}
               <View style={styles.modalFullRow}>
                 <Text style={styles.modalLabel}>Profesor</Text>
-                <Text style={styles.modalValue} numberOfLines={2}>
-                  {selectedMateria.profesor}
-                </Text>
+                <View style={styles.datosContainer}>
+                  <Text style={styles.modalValue} numberOfLines={2}>
+                    {selectedMateria.profesor}
+                  </Text>
+                </View>
               </View>
-              {/* Profesor */}
-              <View style={styles.modalFullRow}>
-                <Text style={styles.modalLabel}>contentContainerStyle</Text>
-                <Text style={styles.modalValue} numberOfLines={2}>
-                  {selectedMateria.centro}
-                </Text>
+
+              <View style={styles.modalRow}>
+                {/* Centro */}
+                <View style={styles.modalColumn}>
+                  <Text style={styles.modalLabel}>Centro</Text>
+                  <View style={styles.datosContainer}>
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.centro}
+                    </Text>
+                  </View>
+                </View>
+                {/* Disponibilidad */}
+                <View style={styles.modalColumn}>
+                  <Text style={styles.modalLabel}>Disponibilidad</Text>
+                  <View style={styles.datosContainer}>
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.disponibilidad}
+                    </Text>
+                  </View>
+                </View>
+                {/* Cupos */}
+                <View style={styles.modalColumn}>
+                  <Text style={styles.modalLabel}>Cupos</Text>
+                  <View style={styles.datosContainer}>
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.cupos}
+                    </Text>
+                  </View>
+                </View>
               </View>
 
               {/* Horarios */}
@@ -529,21 +558,25 @@ export default function GeneratedScheduleView() {
               <View style={styles.modalRow}>
                 <View style={styles.modalColumn}>
                   <Text style={styles.modalLabel}>Fecha inicio</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedMateria.sesiones &&
-                    selectedMateria.sesiones[0]?.fecha_inicio
-                      ? formatDate(selectedMateria.sesiones[0].fecha_inicio)
-                      : ""}
-                  </Text>
+                  <View style={styles.datosContainer}>
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.sesiones &&
+                      selectedMateria.sesiones[0]?.fecha_inicio
+                        ? formatDate(selectedMateria.sesiones[0].fecha_inicio)
+                        : ""}
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.modalColumn}>
                   <Text style={styles.modalLabel}>Fecha fin</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedMateria.sesiones &&
-                    selectedMateria.sesiones[0]?.fecha_fin
-                      ? formatDate(selectedMateria.sesiones[0].fecha_fin)
-                      : ""}
-                  </Text>
+                  <View style={styles.datosContainer}>
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.sesiones &&
+                      selectedMateria.sesiones[0]?.fecha_fin
+                        ? formatDate(selectedMateria.sesiones[0].fecha_fin)
+                        : ""}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -878,6 +911,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     padding: 8,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+    datosContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f5f5f7",
+    padding: 15,
+    borderRadius: 8.5,
     borderWidth: 1,
     borderColor: "#e0e0e0",
   },

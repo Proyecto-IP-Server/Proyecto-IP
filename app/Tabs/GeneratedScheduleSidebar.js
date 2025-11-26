@@ -26,7 +26,12 @@ export default function GeneratedScheduleSidebar({
   onClose,
 }) {
   const [selectedMateria, setSelectedMateria] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false); // Modal de detalles
+  
+  // Estados para el Modal de NRCs
+  const [modalNrcVisible, setModalNrcVisible] = useState(false);
+  const [copiedStates, setCopiedStates] = useState({});
+
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
@@ -54,15 +59,34 @@ export default function GeneratedScheduleSidebar({
     }, 2000);
   };
 
-  const copyToClipboard = async (text) => {
+  const copyToClipboard = async (text, message = "Copiado") => {
     try {
       await Clipboard.setStringAsync(text);
-      showToast("Copiado");
+      showToast(message);
     } catch (_error) {
       showToast("Error al copiar");
     }
   };
 
+  // Función modificada: Ahora abre el modal en lugar de copiar todo
+  const handleOpenNrcModal = () => {
+    setCopiedStates({}); // Reiniciar estados de copiado al abrir
+    setModalNrcVisible(true);
+  };
+
+  // Función para copiar NRC individual dentro del modal
+  const handleCopyIndividualNrc = async (nrc, materiaNombre) => {
+    try {
+      await Clipboard.setStringAsync(nrc.toString());
+      setCopiedStates((prev) => ({ ...prev, [nrc]: true }));
+      showToast(`NRC ${nrc} copiado`);
+    } catch (error) {
+      showToast("Error al copiar");
+    }
+  };
+
+  // Copiar todos (funcionalidad antigua, por si se requiere en otro lado, 
+  // pero el botón principal ahora abre el modal)
   const copyAllNRCs = async () => {
     const nrcs = materias.map((m) => m.nrc).join(", ");
     await copyToClipboard(nrcs, "Todos los NRCs");
@@ -159,7 +183,7 @@ export default function GeneratedScheduleSidebar({
             Materias ({materias.length})
           </Text>
           {materias.length > 0 && (
-            <Pressable style={styles.copyAllButton} onPress={copyAllNRCs}>
+            <Pressable style={styles.copyAllButton} onPress={handleOpenNrcModal}>
               <Text style={styles.copyAllButtonText}>Copiar NRCs</Text>
             </Pressable>
           )}
@@ -257,7 +281,69 @@ export default function GeneratedScheduleSidebar({
         </ScrollView>
       </View>
 
-      {/* Modal de detalles */}
+      {/* ============== MODAL LISTA DE NRCS (NUEVO) ============== */}
+      <BlurModal
+        visible={modalNrcVisible}
+        onClose={() => setModalNrcVisible(false)}
+        containerStyle={styles.modalNrcContainer}
+      >
+        <View style={styles.modalNrcContent}>
+          <Text style={styles.modalNrcTitle}>Lista de NRCs</Text>
+          <Text style={styles.modalNrcSubtitle}>
+            Toca el botón para copiar el NRC de cada materia.
+          </Text>
+
+          <View style={styles.nrcListContainer}>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {materias.map((materia, index) => {
+                const isCopied = copiedStates[materia.nrc];
+                return (
+                  <View key={index} style={styles.nrcCard}>
+                    <View style={styles.nrcCardContent}>
+                      <View style={styles.nrcInfo}>
+                        <Text style={styles.nrcCardTitle} numberOfLines={2}>
+                          {materia.nombre}
+                        </Text>
+                        <Text style={styles.nrcCardSubtitle}>
+                          NRC: {materia.nrc}
+                        </Text>
+                      </View>
+
+                      <Pressable
+                        style={[
+                          styles.nrcCopyButton,
+                          isCopied && styles.nrcCopyButtonActive,
+                        ]}
+                        onPress={() => handleCopyIndividualNrc(materia.nrc, materia.nombre)}
+                      >
+                         <Image
+                          source={
+                            isCopied
+                              ? require("@/assets/images/check_white.svg") // Icono cambiado si ya se copió
+                              : require("@/assets/images/copy_white.svg")
+                          }
+                          style={styles.nrcCopyButtonIcon}
+                          contentFit="contain"
+                        />
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Botón Cerrar */}
+          <Pressable
+            style={styles.modalCloseButton}
+            onPress={() => setModalNrcVisible(false)}
+          >
+            <Text style={styles.modalCloseButtonText}>Cerrar</Text>
+          </Pressable>
+        </View>
+      </BlurModal>
+
+      {/* Modal de detalles de Materia */}
       {selectedMateria && (
         <BlurModal
           visible={modalVisible}
@@ -307,34 +393,66 @@ export default function GeneratedScheduleSidebar({
                 {selectedMateria.numero && (
                   <View style={styles.modalColumn}>
                     <Text style={styles.modalLabel}>Sección</Text>
-                    <Text style={styles.modalValue}>
-                      {selectedMateria.numero}
-                    </Text>
+                    <View style={styles.datosContainer}>
+                      <Text style={styles.modalValue}>
+                        {selectedMateria.numero}
+                      </Text>
+                    </View>
                   </View>
                 )}
 
                 <View style={styles.modalColumn}>
                   <Text style={styles.modalLabel}>Créditos</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedMateria.creditos}
-                  </Text>
+                  <View style={styles.datosContainer}>  
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.creditos}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
               {/* Profesor */}
               <View style={styles.modalFullRow}>
                 <Text style={styles.modalLabel}>Profesor</Text>
-                <Text style={styles.modalValue} numberOfLines={2}>
-                  {selectedMateria.profesor}
-                </Text>
+                <View style={styles.datosContainer}>
+                  <Text style={styles.modalValue} numberOfLines={2}>
+                    {selectedMateria.profesor}
+                  </Text>
+                </View>
               </View>
-              {/* Profesor */}
-              <View style={styles.modalFullRow}>
-                <Text style={styles.modalLabel}>contentContainerStyle</Text>
-                <Text style={styles.modalValue} numberOfLines={2}>
-                  {selectedMateria.centro}
-                </Text>
-              </View>
+              
+                <View style={styles.modalRow}>
+                  {/* Centro */}
+                  <View style={styles.modalColumn}>
+                    <Text style={styles.modalLabel}>Centro</Text>
+                    <View style={styles.datosContainer}>  
+                      <Text style={styles.modalValue}>
+                        {selectedMateria.centro}
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Disponibilidad */}
+                  <View style={styles.modalColumn}>
+                    <Text style={styles.modalLabel}>Disponibilidad</Text>
+                    <View style={styles.datosContainer}>
+                      <Text style={styles.modalValue}>
+                        {selectedMateria.disponibilidad}
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Cupos */}
+                  <View style={styles.modalColumn}>
+                    <Text style={styles.modalLabel}>Cupos</Text>
+                    <View style={styles.datosContainer}>
+                      <Text style={styles.modalValue}>
+                        {selectedMateria.cupos}
+                      </Text>
+                    </View>
+                  </View>
+
+                </View>
+              
+
 
               {/* Horarios */}
               <View style={styles.modalFullRow}>
@@ -364,26 +482,32 @@ export default function GeneratedScheduleSidebar({
               <View style={styles.modalRow}>
                 <View style={styles.modalColumn}>
                   <Text style={styles.modalLabel}>Fecha inicio</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedMateria.sesiones &&
-                    selectedMateria.sesiones[0]?.fecha_inicio
-                      ? formatDate(selectedMateria.sesiones[0].fecha_inicio)
-                      : ""}
-                  </Text>
+                  <View style={styles.datosContainer}>  
+
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.sesiones &&
+                      selectedMateria.sesiones[0]?.fecha_inicio
+                        ? formatDate(selectedMateria.sesiones[0].fecha_inicio)
+                        : ""}
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.modalColumn}>
                   <Text style={styles.modalLabel}>Fecha fin</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedMateria.sesiones &&
-                    selectedMateria.sesiones[0]?.fecha_fin
-                      ? formatDate(selectedMateria.sesiones[0].fecha_fin)
-                      : ""}
-                  </Text>
+                  <View style={styles.datosContainer}>
+
+                    <Text style={styles.modalValue}>
+                      {selectedMateria.sesiones &&
+                      selectedMateria.sesiones[0]?.fecha_fin
+                        ? formatDate(selectedMateria.sesiones[0].fecha_fin)
+                        : ""}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
 
-            {/* Botón </View>de cerrar */}
+            {/* Botón de cerrar */}
             <Pressable
               style={styles.modalCloseButton}
               onPress={() => setModalVisible(false)}
@@ -668,7 +792,8 @@ const styles = StyleSheet.create({
     color: "#8e8e93",
     fontStyle: "italic",
   },
-  // ============== ESTILOS DEL MODAL ==============
+  
+  // ============== ESTILOS DEL MODAL DE DETALLES ==============
   modalContainer: {
     width: isMobile ? "92%" : "85%",
     maxWidth: 550,
@@ -728,6 +853,16 @@ const styles = StyleSheet.create({
     fontSize: isMobile ? 13 : 14,
     color: "#1c1c1e",
     fontWeight: "500",
+  },
+  datosContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f5f5f7",
+    padding: 15,
+    borderRadius: 8.5,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   nrcContainer: {
     flexDirection: "row",
@@ -790,6 +925,94 @@ const styles = StyleSheet.create({
     fontSize: isMobile ? 16 : 18,
     fontWeight: "700",
   },
+  
+  // ============== ESTILOS DEL MODAL DE NRCS (NUEVO) ==============
+  modalNrcContainer: {
+    width: "90%",
+    maxWidth: 450,
+    backgroundColor: "white",
+    borderRadius: 12,
+    overflow: "hidden",
+    padding: 0, 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalNrcContent: {
+    padding: 20,
+  },
+  modalNrcTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 5,
+    textAlign: "center",
+  },
+  modalNrcSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  nrcListContainer: {
+    width: "100%",
+    marginBottom: 20,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    padding: 10,
+  },
+  nrcCard: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    overflow: "hidden",
+  },
+  nrcCardContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+  },
+  nrcInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  nrcCardTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  nrcCardSubtitle: {
+    fontSize: 12,
+    color: "#666",
+  },
+  nrcCopyButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: PRIMARY_COLOR,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  nrcCopyButtonActive: {
+    backgroundColor: "#4CAF50", // Verde al copiar
+    borderColor: "#2E7D32",
+  },
+  nrcCopyButtonIcon: {
+    width: 18,
+    height: 18,
+    tintColor: "#fff",
+  },
+
   // ============== TOAST ==============
   toastContainer: {
     flex: 1,

@@ -2,13 +2,13 @@
 <!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
 
 <svg
-   width="800px"
-   height="800px"
-   viewBox="0 0 24 24"
+   width="400"
+   height="297.65543"
+   viewBox="0 0 12 8.9296628"
    fill="none"
    version="1.1"
    id="svg4"
-   sodipodi:docname="check.svg"
+   sodipodi:docname="check_white.svg"
    inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -27,8 +27,8 @@
      inkscape:deskcolor="#d1d1d1"
      showgrid="false"
      inkscape:zoom="0.67"
-     inkscape:cx="400.74627"
-     inkscape:cy="400.74627"
+     inkscape:cx="200.74627"
+     inkscape:cy="167.91045"
      inkscape:window-width="1920"
      inkscape:window-height="1052"
      inkscape:window-x="1366"
@@ -36,7 +36,7 @@
      inkscape:window-maximized="1"
      inkscape:current-layer="svg4" />
   <path
-     d="M7 12L9.89075 14.8907V14.8907C9.95114 14.951 10.049 14.9511 10.1094 14.8907V14.8907L17 8"
+     d="m 1,5 2.89075,2.8907 v 0 c 0.06039,0.0603 0.15825,0.0604 0.21865,0 v 0 L 11,1"
      stroke="#323232"
      stroke-width="2"
      stroke-linecap="round"

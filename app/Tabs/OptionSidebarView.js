@@ -7,9 +7,8 @@ import {
   Pressable,
   ActivityIndicator,
   Dimensions,
-  Modal
-} 
-from "react-native";
+  Modal,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import TextTitle from "../../components/TextTitle";
@@ -21,6 +20,7 @@ import { API_BASE_URL } from "../../config/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { generateSchedules } from "../../utils/ScheduleGenerator";
+import { Background } from "@react-navigation/elements";
 
 // Utilidad para transformar celdas bloqueadas a formato Horario.fromData
 function mapDisabledCellsToHorarioData(disabledCellsArray) {
@@ -56,7 +56,10 @@ export default function OptionSidebarView({ onClose }) {
   const [profesorPreferences, setProfesorPreferences] = useState({});
   const [loadingSecciones, setLoadingSecciones] = useState(false);
   const [loadingMaterias, setLoadingMaterias] = useState(false);
-  const [loadingGeneracion, setLoadingGeneracion] = useState(true);
+  const [loadingGeneracion, setLoadingGeneracion] = useState(false);
+  const [modalErrorVisible, setModalErrorVisible] = useState(false);
+
+  const [modalErrorMessage, setModalErrorMessage] = useState("");
 
   // Estado para guardar las materias añadidas
   const [materiasAnadidas, setMateriasAnadidas] = useState([]);
@@ -84,7 +87,7 @@ export default function OptionSidebarView({ onClose }) {
   const [modalConfirmarEliminar, setModalConfirmarEliminar] = useState(false);
   const [modalConfirmarLimpiar, setModalConfirmarLimpiar] = useState(false);
   const [materiaAEliminar, setMateriaAEliminar] = useState(null);
-  
+
   const [modalCambioContexto, setModalCambioContexto] = useState(false);
   const [cicloAnterior, setCicloAnterior] = useState("");
   const [carreraAnterior, setCarreraAnterior] = useState(""); // Nuevo estado
@@ -96,7 +99,6 @@ export default function OptionSidebarView({ onClose }) {
     loadMateriasAnadidas();
     loadOpcionesGeneracion();
   }, []);
-
 
   // Función para cargar las materias guardadas
   const loadMateriasAnadidas = async () => {
@@ -191,8 +193,10 @@ export default function OptionSidebarView({ onClose }) {
       );
 
       // Verificamos si hay discrepancia en Ciclo O en Carrera
-      const cicloDiferente = cicloGuardado && cicloGuardado.trim() !== userData.calendario.trim();
-      const carreraDiferente = carreraGuardada && carreraGuardada.trim() !== userData.carrera.trim();
+      const cicloDiferente =
+        cicloGuardado && cicloGuardado.trim() !== userData.calendario.trim();
+      const carreraDiferente =
+        carreraGuardada && carreraGuardada.trim() !== userData.carrera.trim();
 
       if (cicloDiferente || carreraDiferente) {
         // Detectado cambio de contexto
@@ -200,17 +204,21 @@ export default function OptionSidebarView({ onClose }) {
         setCicloAnterior(cicloGuardado || userData.calendario); // Fallback por si solo uno es null
         setCarreraAnterior(carreraGuardada || userData.carrera);
         setModalCambioContexto(true);
-      } else if ((!cicloGuardado || !carreraGuardada) && materiasAnadidas.length > 0) {
+      } else if (
+        (!cicloGuardado || !carreraGuardada) &&
+        materiasAnadidas.length > 0
+      ) {
         // No hay datos guardados pero hay materias, guardar el contexto actual para evitar errores futuros
         console.log("Guardando contexto actual de referencia");
-        if(!cicloGuardado) await AsyncStorage.setItem("cicloMaterias", userData.calendario);
-        if(!carreraGuardada) await AsyncStorage.setItem("carreraMaterias", userData.carrera);
+        if (!cicloGuardado)
+          await AsyncStorage.setItem("cicloMaterias", userData.calendario);
+        if (!carreraGuardada)
+          await AsyncStorage.setItem("carreraMaterias", userData.carrera);
       }
     } catch (error) {
       console.error("Error al verificar cambio de contexto:", error);
     }
   }, [userData, materiasAnadidas.length]);
-
 
   // Función para mantener materias y RESTAURAR la configuración anterior
   const handleMantenerMaterias = async () => {
@@ -243,11 +251,11 @@ export default function OptionSidebarView({ onClose }) {
       await AsyncStorage.removeItem("cicloMaterias");
       await AsyncStorage.removeItem("carreraMaterias");
       setMateriasAnadidas([]);
-      
+
       setModalCambioContexto(false);
-      
+
       // Redirigir al login para que el usuario configure bien sus datos
-      //router.replace("/"); 
+      //router.replace("/");
     } catch (error) {
       console.error("Error al limpiar:", error);
     }
@@ -398,7 +406,7 @@ export default function OptionSidebarView({ onClose }) {
       profesores: profesorPreferences,
     };
     console.log("Guardando materia:", materiaData);
-    
+
     // Guardar ciclo Y carrera cuando se añade la primera materia
     if (materiasAnadidas.length === 0) {
       await AsyncStorage.setItem("cicloMaterias", userData.calendario);
@@ -419,7 +427,8 @@ export default function OptionSidebarView({ onClose }) {
       );
 
       if (materiaExiste) {
-        alert(
+        console.log("La materia ya ha sido añadida.");
+        setModalErrorMessage(
           "Esta materia ya ha sido añadida. Puedes editarla desde la lista."
         );
         return;
@@ -623,7 +632,7 @@ export default function OptionSidebarView({ onClose }) {
         )}
 
         {/* Botón Preferencias Horarios - Solo visible en móviles */}
-        {isMobile &&  (
+        {isMobile && (
           <View style={styles.preferenciasHorariosContainer}>
             <Pressable
               style={styles.preferenciasHorariosButton}
@@ -685,16 +694,27 @@ export default function OptionSidebarView({ onClose }) {
         </Text>
         <Text style={styles.modalConfirmacionText}>
           Las materias guardadas pertenecen a:{"\n"}
-          Ciclo: <Text style={{ fontWeight: "bold" }}>{cicloAnterior || "Desconocido"}</Text>{"\n"}
-          Carrera: <Text style={{ fontWeight: "bold" }}>{carreraAnterior || "Desconocida"}</Text>
+          Ciclo:{" "}
+          <Text style={{ fontWeight: "bold" }}>
+            {cicloAnterior || "Desconocido"}
+          </Text>
+          {"\n"}
+          Carrera:{" "}
+          <Text style={{ fontWeight: "bold" }}>
+            {carreraAnterior || "Desconocida"}
+          </Text>
         </Text>
         <Text style={styles.modalConfirmacionText}>
           Pero tu configuración actual es:{"\n"}
-          Ciclo: <Text style={{ fontWeight: "bold" }}>{userData?.calendario}</Text>{"\n"}
-          Carrera: <Text style={{ fontWeight: "bold" }}>{userData?.carrera}</Text>
+          Ciclo:{" "}
+          <Text style={{ fontWeight: "bold" }}>{userData?.calendario}</Text>
+          {"\n"}
+          Carrera:{" "}
+          <Text style={{ fontWeight: "bold" }}>{userData?.carrera}</Text>
         </Text>
         <Text style={styles.modalConfirmacionSubtext}>
-          No puedes mezclar materias de diferentes ciclos o carreras. ¿Qué deseas hacer?
+          No puedes mezclar materias de diferentes ciclos o carreras. ¿Qué
+          deseas hacer?
         </Text>
 
         <View style={styles.modalConfirmacionButtons}>
@@ -708,7 +728,7 @@ export default function OptionSidebarView({ onClose }) {
             <Text style={styles.modalConfirmacionButtonTextCancel}>
               Restaurar materias
             </Text>
-            <Text style={{fontSize: 10, color: '#666', textAlign: 'center'}}>
+            <Text style={{ fontSize: 10, color: "#666", textAlign: "center" }}>
               (Vuelve a la config. anterior)
             </Text>
           </Pressable>
@@ -723,7 +743,7 @@ export default function OptionSidebarView({ onClose }) {
             <Text style={styles.modalConfirmacionButtonTextConfirm}>
               Borrar y cambiar
             </Text>
-            <Text style={{fontSize: 10, color: '#FFF', textAlign: 'center'}}>
+            <Text style={{ fontSize: 10, color: "#FFF", textAlign: "center" }}>
               (Borra materias y mantiene configuración actual)
             </Text>
           </Pressable>
@@ -1316,7 +1336,6 @@ export default function OptionSidebarView({ onClose }) {
           <Pressable
             style={styles.modalOpcionesButtonPrimary}
             onPress={async () => {
-
               try {
                 setLoadingGeneracion(true);
 
@@ -1377,13 +1396,14 @@ export default function OptionSidebarView({ onClose }) {
                   setModalOpcionesVisible(false);
                   router.push("/Tabs/GeneratedScheduleView");
                 } else {
-                  alert(
+                  console.log("No se encontraron combinaciones posibles.");
+                  setModalErrorMessage(
                     "No se encontraron combinaciones posibles con las restricciones actuales."
                   );
                 }
               } catch (error) {
                 console.error(error);
-                alert("Error generando horario");
+                setModalErrorMessage("Error generando horario");
               } finally {
                 setLoadingGeneracion(false);
               }
@@ -1411,14 +1431,7 @@ export default function OptionSidebarView({ onClose }) {
             </Text>
           </Pressable>
 
-          <View />
-          <View style={{ alignItems: "center", marginTop: 10 }}>
-            <Pressable onPress={() => router.push("/Tabs/suport")}>
-              <Text style={{ color: "red", backgroundColor: "cyan" }}>
-                Ir a pagina de sporte (por ahora así)
-              </Text>
-            </Pressable>
-          </View>
+          <View/>
         </View>
       </BlurModal>
 
@@ -1523,8 +1536,26 @@ export default function OptionSidebarView({ onClose }) {
                     <Text style={styles.profesorNombre} numberOfLines={2}>
                       {profesor}
                     </Text>
-
+                    {/*Reseña*/}
                     <View style={styles.preferenceButtons}>
+                      <Pressable
+                        style={styles.preferenceButton}
+                        onPress={() => {
+                          handleSaveMateria();
+                          router.push({
+                            pathname: "/Tabs/reviews",
+                            params: { profesorNombre: profesor },
+                          });
+
+                        }}
+                      >
+                        <Image
+                          source={require("../../assets/images/magnifer_black.svg")}
+                          style={styles.preferenceIcon}
+                          contentFit="contain"
+                        />
+                      </Pressable>
+
                       {/* Botón Like */}
                       <Pressable
                         style={[
@@ -1621,7 +1652,7 @@ export default function OptionSidebarView({ onClose }) {
         animationType="fade"
         visible={loadingGeneracion}
         statusBarTranslucent={true} // Cubre también la barra de estado
-        onRequestClose={() => {}}   // Evita que se cierre con el botón atrás de Android
+        onRequestClose={() => {}} // Evita que se cierre con el botón atrás de Android
       >
         <View style={styles.loaderOverlay}>
           <View style={styles.loaderContainer}>
@@ -1633,6 +1664,29 @@ export default function OptionSidebarView({ onClose }) {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL DE ERROR CON OPCION DE CERRAR */}
+      <BlurModal
+        visible={modalErrorVisible}
+        slideDistance={300}
+        containerStyle={styles.modalConfirmacionContainer}
+      >
+        <Text style={styles.modalConfirmacionTitle}>Advertencia</Text>
+
+        <Text style={styles.modalConfirmacionText}>{modalErrorMessage}</Text>
+
+        <View style={styles.modalConfirmacionButtons}>
+          <Pressable
+            style={[
+              styles.modalConfirmacionButton,
+              styles.modalConfirmacionButtonCancel,
+            ]}
+            onPress={() => setModalErrorVisible(false)}
+          >
+            <Text style={styles.modalConfirmacionButtonTextCancel}>Cerrar</Text>
+          </Pressable>
+        </View>
+      </BlurModal>
     </View>
   );
 }
@@ -1847,6 +1901,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#F44336",
     borderColor: "#C62828",
   },
+  reviewButton: {
+    backgroundColor: "#E3F2FD",
+    borderColor: "#BBDEFB",
+  },
+  
   // Estilos para búsqueda de profesores
   searchProfesorInput: {
     padding: 10,
@@ -2212,7 +2271,6 @@ const styles = StyleSheet.create({
   },
   modalConfirmacionButtonCancel: {
     backgroundColor: "#f0f0f0",
-    borderWidth: 1,
     borderColor: "#ddd",
   },
   modalConfirmacionButtonConfirm: {
@@ -2220,6 +2278,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmacionButtonTextCancel: {
     color: "#666",
+    borderWidth: 0,
     fontSize: 16,
     fontWeight: "600",
   },
@@ -2343,8 +2402,7 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     marginTop: 8,
-    fontSize: 16
-    ,
+    fontSize: 16,
     color: "#000",
     textAlign: "center",
   },
