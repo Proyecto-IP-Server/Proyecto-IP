@@ -8,7 +8,6 @@ import {
   TextInput,
   ActivityIndicator,
   useWindowDimensions,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   Modal,
@@ -62,6 +61,8 @@ export default function ReviewsView() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { profesorNombre } = useLocalSearchParams();
+  
+  // --- RESPONSIVIDAD ---
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
@@ -79,7 +80,7 @@ export default function ReviewsView() {
   const [filterMateria, setFilterMateria] = useState("TODAS");
   const [isEditing, setIsEditing] = useState(false);
   const [activeTooltipIndex, setActiveTooltipIndex] = useState(null);
-  const [mobileMenuVisible, setMobileMenuVisible] = useState(false); // Estado Menú Móvil
+  const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
 
   // --- Listas y Carga ---
   const [carrereasList, setCarrerasList] = useState([]);
@@ -468,9 +469,8 @@ export default function ReviewsView() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       
-      {/* --- HEADER RESPONSIVO UNIFICADO --- */}
+      {/* --- HEADER --- */}
       <View style={styles.header}>
-        {/* IZQUIERDA: Botón Regresar */}
         <View style={{ minWidth: 80 }}>
             <Pressable style={styles.backButton} onPress={handleBack}>
             <Image
@@ -482,20 +482,17 @@ export default function ReviewsView() {
             </Pressable>
         </View>
 
-        {/* CENTRO: Título */}
         <Text 
             style={[
                 styles.headerTitle, 
-                { fontSize: isMobile ? 18 : 22 } // Tamaño dinámico
+                { fontSize: isMobile ? 18 : 22 }
             ]}
         >
             Reseñas de Profesores
         </Text>
 
-        {/* DERECHA: Menú Móvil o Botones Escritorio */}
         <View style={{ minWidth: isMobile ? 40 : 'auto', alignItems: 'flex-end' }}>
             {isMobile ? (
-                // --- BOTÓN MENÚ MÓVIL (SVG BLANCO SIN TINTCOLOR) ---
                 <Pressable 
                     style={[styles.navButton, { backgroundColor: mobileMenuVisible ? '#0056b3' : '#007AFF' }]} 
                     onPress={() => setMobileMenuVisible(true)}
@@ -503,12 +500,11 @@ export default function ReviewsView() {
                     <Text style={styles.navButtonText}>Menú</Text>
                     <Image 
                         source={require("@/assets/images/hamburger_white.svg")} 
-                        style={styles.iconStyles} // Sin tintColor en el estilo
+                        style={styles.iconStyles}
                         contentFit="contain"
                     />
                 </Pressable>
             ) : (
-                // --- BOTONES ESCRITORIO ---
                 <View style={styles.desktopNavContainer}>
                     <Pressable style={styles.navButton} onPress={() => handleNavigation("/Tabs/home")}>
                         <Image source={require("@/assets/images/home.svg")} style={styles.iconStylesDesktop} contentFit="contain"/>
@@ -529,7 +525,7 @@ export default function ReviewsView() {
         </View>
       </View>
 
-      {/* --- MENU MÓVIL MODAL --- */}
+      {/* --- MENU MÓVIL --- */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -573,10 +569,19 @@ export default function ReviewsView() {
         <MessageBanner style={{ margin: 16 }} />
       )}
 
-      <View style={styles.controlsContainer}>
-        <View style={styles.searchContainer}>
+      {/* --- CONTROLES Y BÚSQUEDA ---
+        SOLUCIÓN ANDROID: Usamos 'width' porcentual explicito en lugar de 'flex: 1' 
+        para evitar el colapso del TextInput.
+      */}
+      <View style={[styles.controlsContainer, { flexDirection: isMobile ? 'column' : 'row' }]}>
+        
+        {/* Barra de Búsqueda */}
+        <View style={[
+            styles.searchContainer, 
+            { width: isMobile ? "100%" : "70%" } // Ancho explícito
+        ]}>
           <Image
-            source={require("@/assets/images/calendar-search.svg")}
+            source={require("@/assets/images/magnifer.svg")}
             style={styles.searchIcon}
             contentFit="contain"
           />
@@ -585,10 +590,16 @@ export default function ReviewsView() {
             placeholder="Buscar profesor o materia..."
             value={searchQuery}
             onChangeText={setSearchQuery}
+            placeholderTextColor="#999"
           />
         </View>
+        
+        {/* Botón */}
         <Pressable
-          style={styles.addButton}
+          style={[
+              styles.addButton, 
+              { width: isMobile ? "100%" : "28%" } // Ancho explícito (70+28=98% + gap)
+          ]}
           onPress={() => setAddModalVisible(true)}
         >
           <Text style={styles.addButtonText}>+ Escribir Reseña</Text>
@@ -660,7 +671,7 @@ export default function ReviewsView() {
         )}
       </ScrollView>
 
-      {/* --- MODAL AGREGAR / EDITAR RESEÑA --- */}
+      {/* --- MODALES --- */}
       <BlurModal
         visible={addModalVisible}
         onClose={() => {
@@ -852,7 +863,6 @@ export default function ReviewsView() {
                   <TextInput
                     style={styles.emailPrefixInput}
                     placeholder="correo"
-                    keyboardType="number-pad"
                     autoCapitalize="none"
                     value={formData.correo}
                     onChangeText={(t) =>
@@ -1172,7 +1182,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f7",
   },
-  // --- Header Styles Unificados ---
+  // --- Header Styles ---
   header: {
     padding: 12,
     paddingHorizontal: 16,
@@ -1227,7 +1237,6 @@ const styles = StyleSheet.create({
   iconStyles: {
     width: 22,
     height: 22,
-    // Sin tintColor para el menú móvil
   },
   iconStylesDesktop: {
     width: 18,
@@ -1294,41 +1303,45 @@ const styles = StyleSheet.create({
   infoText: {
     color: "#0D47A1",
   },
+  
+  // --- CONTROLES Y BÚSQUEDA ---
   controlsContainer: {
     padding: 16,
-    flexDirection: Dimensions.get("window").width < 768 ? "column" : "row",
     gap: 10,
     justifyContent: "space-between",
   },
   searchContainer: {
-    flex: 1,
+    // IMPORTANTE: Eliminado flex: 1
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 8,
-    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: "#ccc",
-    height: 50,
+    paddingHorizontal: 12,
+    height: 50, // Altura fija
   },
   searchIcon: {
     width: 20,
     height: 20,
     marginRight: 8,
+    tintColor: "#666"
   },
   searchInput: {
     flex: 1,
-    height: "100%",
+    height: "100%", // Ocupar toda la altura del padre fijo
     fontSize: 16,
+    color: "#333",
     paddingVertical: 0,
   },
   addButton: {
     backgroundColor: "#4CAF50",
     paddingHorizontal: 20,
-    height: 45,
+    height: 50,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
+    // Eliminado flex
   },
   addButtonText: {
     color: "#fff",
@@ -1406,7 +1419,8 @@ const styles = StyleSheet.create({
     color: "#999",
   },
   modalContainer: {
-    width: Dimensions.get("window").width < 768 ? "90%" : 500,
+    width: "90%",
+    maxWidth: 500,
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 20,
@@ -1532,7 +1546,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   detailModalContainer: {
-    width: Dimensions.get("window").width < 768 ? "90%" : 600,
+    width: "90%",
+    maxWidth: 600,
     height: "80%",
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -1688,7 +1703,7 @@ const styles = StyleSheet.create({
   closeDetailText: {
     color: PRIMARY_COLOR,
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 16,  
   },
   preferenceButton: {
     width: 30,

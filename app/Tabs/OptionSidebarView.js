@@ -22,19 +22,6 @@ import { useRouter } from "expo-router";
 import { generateSchedules } from "../../utils/ScheduleGenerator";
 import { Background } from "@react-navigation/elements";
 
-// Utilidad para transformar celdas bloqueadas a formato Horario.fromData
-function mapDisabledCellsToHorarioData(disabledCellsArray) {
-  // disabledCellsArray: [{ dia: 1-6, hora: "HH:MM:SS.mmmmmm" }]
-  return disabledCellsArray.map((cell) => {
-    const dia_semana = (cell.dia || 1) - 1; // Lunes=1 → 0
-    const hora_inicio = cell.hora ? cell.hora.substring(0, 5) : "07:00";
-    // Asume bloqueos de 1 hora
-    const startHour = parseInt(hora_inicio.split(":")[0]);
-    const hora_fin = `${(startHour + 1).toString().padStart(2, "0")}:00`;
-    return { dia_semana, hora_inicio, hora_fin };
-  });
-}
-
 const { width } = Dimensions.get("window");
 const isMobile = width < 768;
 
@@ -431,6 +418,7 @@ export default function OptionSidebarView({ onClose }) {
         setModalErrorMessage(
           "Esta materia ya ha sido añadida. Puedes editarla desde la lista."
         );
+        setModalErrorVisible(true);
         return;
       }
 
@@ -1400,10 +1388,12 @@ export default function OptionSidebarView({ onClose }) {
                   setModalErrorMessage(
                     "No se encontraron combinaciones posibles con las restricciones actuales."
                   );
+                  setModalErrorVisible(true);
                 }
               } catch (error) {
                 console.error(error);
                 setModalErrorMessage("Error generando horario");
+                setModalErrorVisible(true);
               } finally {
                 setLoadingGeneracion(false);
               }
@@ -1681,7 +1671,11 @@ export default function OptionSidebarView({ onClose }) {
               styles.modalConfirmacionButton,
               styles.modalConfirmacionButtonCancel,
             ]}
-            onPress={() => setModalErrorVisible(false)}
+            onPress={() => {
+              setModalOpcionesVisible(false);
+              setModalErrorVisible(false);
+            }}
+           
           >
             <Text style={styles.modalConfirmacionButtonTextCancel}>Cerrar</Text>
           </Pressable>

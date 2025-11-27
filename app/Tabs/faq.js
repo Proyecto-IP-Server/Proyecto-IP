@@ -37,49 +37,49 @@ const faqData = [
     category: "Home",
     question: "¿Cómo entro a la app por primera vez?",
     answer:
-      "¡Fácil! Usa tu **correo institucional**. Te mandaremos un código secreto al instante para que inicies sesión. ¡No hay contraseñas raras!",
+      "¡Fácil! Solo ingresa tu Centro Universitario, Ciclo y tu Carrera; con eso podrás acceder sin ningún problema.",
   },
   {
     id: "2",
     category: "Home",
-    question: "No me llega el código de acceso",
+    question: "No me deja entrar",
     answer:
-      "Checa tu bandeja de **spam** o correo no deseado. Confirma que escribiste bien tu **correo de la uni**. Si no llega, intenta pedirlo de nuevo.",
+      "Revisa si tienes conexión a internet o si el sistema está disponible.",
   },
   {
     id: "3",
     category: "Home",
     question: "¿La app funciona sin internet?",
     answer:
-      "Necesitas conexión para buscar cosas nuevas y entrar. Pero los lugares que ya viste se quedan guardados un rato para que los leas offline.",
+      "Necesitas conexión para poder consultar las materias.",
   },
   {
     id: "4",
     category: "Home",
-    question: "¿Cómo guardo un lugar para después?",
+    question: "¿Cómo se almacenan los datos?",
     answer:
-      "Usa la **Lista de Seguimiento**. En la página del local, toca el ícono de la bandera o marcador. Aparecerá en tu perfil.",
+      "Los datos solo se almacenan de forma local.",
   },
   {
     id: "5",
     category: "Reseñas",
     question: "¿Cómo dejo una opinión?",
     answer:
-      'En la página del profesor o lugar, busca el botón **"Dejar Reseña"**. Selecciona las estrellas y escribe tu experiencia.',
+      'En la página de Reseñas selecciona **"+ Escribir Reseña"**. Elige una materia, el profesor que la imparte, asigna una calificación y escribe tu opinión. Para validar la reseña es **¡muy importante!** que utilices tu correo institucional **@alumnos.udg.mx**. Las reseñas son completamente anónimas.',
   },
   {
     id: "6",
     category: "Reseñas",
     question: "¿Puedo subir fotos?",
     answer:
-      "¡Sí! Puedes subir hasta **5 fotos** por reseña. Asegúrate de que sean formato **JPG o PNG** y pesen menos de 5MB.",
+      "¡No! Por el momento no puedes subir fotos.",
   },
   {
     id: "7",
     category: "Reseñas",
     question: "Me equivoqué, ¿puedo editar mi reseña?",
     answer:
-      'Claro. Ve a tu Perfil o busca tu reseña en la lista y selecciona la opción de **"Editar"**. Tendrás que validar tu correo nuevamente por seguridad.',
+      'Solo puedes editar una reseña si eres el autor de la misma. Al confirmar tu correo, si ya existe una reseña tuya esta se modificará; de lo contrario, se publicará una nueva.',
   },
   {
     id: "8",
@@ -93,14 +93,14 @@ const faqData = [
     category: "FAQ",
     question: "¿Qué puedo hacer en esta app?",
     answer:
-      "Puedes **buscar** dónde comer o estudiar, ver **horarios**, leer **opiniones** de otros alumnos y compartir las tuyas.",
+      "Puedes agregar materias para generar un horario según tus preferencias, seleccionar a tus profesores favoritos, marcar las horas que no quieres tener clases, e incluso existe una función para copiar rápidamente los NRCs de todas las materias del horario ya generado.",
   },
   {
     id: "10",
     category: "FAQ",
     question: "¿La información se actualiza sola?",
     answer:
-      "Tu historial y las reseñas nuevas se actualizan automáticamente cada **10 minutos** para no alentar tu teléfono.",
+      "Actualmente estamos trabajando en mejorar la experiencia. La información solo se actualiza al momento de volver a generar un nuevo horario.",
   },
   {
     id: "11",
@@ -121,7 +121,7 @@ const faqData = [
     category: "Soporte",
     question: "¿Qué contenido está prohibido?",
     answer:
-      "Prohibido el **spam**, los **insultos**, el acoso y publicar información privada de otros. Mantengamos una comunidad respetuosa.",
+      "Prohibido el **spam**, los **insultos**, el acoso y publicar información privada de otros. Mantengamos una comunidad respetuosa. Si se detecta un comportamiento inusual, puedes ser acreedor a una suspensión de la plataforma.",
   },
 ];
 
