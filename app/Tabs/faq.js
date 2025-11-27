@@ -367,7 +367,7 @@ export default function FAQView() {
 
           <View style={styles.searchContainer}>
             <Image
-              source={require("@/assets/images/magnifer.svg")}
+              source={require("@/assets/images/magnifer_black.svg")}
               style={styles.searchIcon}
               contentFit="contain"
             />

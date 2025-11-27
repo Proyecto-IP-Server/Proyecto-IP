@@ -53,7 +53,7 @@ export default function Home() {
     ) {
       router.push("/");
     } else {
-      console.log("Datos del usuario cargados:", userData);
+      //console.log("Datos del usuario cargados:", userData);
     }
   }, [loading, userData, router]);
 

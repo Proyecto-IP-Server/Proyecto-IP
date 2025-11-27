@@ -11,7 +11,6 @@ import {
   useWindowDimensions,
   Modal,
   TouchableOpacity,
-  Dimensions
 } from "react-native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";

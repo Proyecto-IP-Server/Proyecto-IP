@@ -581,7 +581,7 @@ export default function ReviewsView() {
             { width: isMobile ? "100%" : "70%" } // Ancho explícito
         ]}>
           <Image
-            source={require("@/assets/images/magnifer.svg")}
+            source={require("@/assets/images/magnifer_black.svg")}
             style={styles.searchIcon}
             contentFit="contain"
           />

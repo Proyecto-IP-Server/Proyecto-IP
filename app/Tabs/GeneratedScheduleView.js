@@ -253,9 +253,7 @@ export default function GeneratedScheduleView() {
               }}
             >
               <Image
-                source={{
-                  uri: "https://images.icon-icons.com/1919/PNG/512/optionscircularbutton_122043.png",
-                }}
+                source={require("@/assets/images/hamburger.svg")}
                 style={{ width: 35, height: 35 }}
               />
             </Pressable>

@@ -68,9 +68,9 @@ export default function GeneratedScheduleSidebar({
     }
   };
 
-  // Función modificada: Ahora abre el modal en lugar de copiar todo
+
   const handleOpenNrcModal = () => {
-    setCopiedStates({}); // Reiniciar estados de copiado al abrir
+    setCopiedStates({}); 
     setModalNrcVisible(true);
   };
 
@@ -81,15 +81,8 @@ export default function GeneratedScheduleSidebar({
       setCopiedStates((prev) => ({ ...prev, [nrc]: true }));
       showToast(`NRC ${nrc} copiado`);
     } catch (error) {
-      showToast("Error al copiar");
+      showToast("Error al copiar: " + error.message);
     }
-  };
-
-  // Copiar todos (funcionalidad antigua, por si se requiere en otro lado, 
-  // pero el botón principal ahora abre el modal)
-  const copyAllNRCs = async () => {
-    const nrcs = materias.map((m) => m.nrc).join(", ");
-    await copyToClipboard(nrcs, "Todos los NRCs");
   };
 
   const openDetails = (materia, index) => {

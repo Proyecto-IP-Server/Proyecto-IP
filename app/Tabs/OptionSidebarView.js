@@ -20,7 +20,6 @@ import { API_BASE_URL } from "../../config/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { generateSchedules } from "../../utils/ScheduleGenerator";
-import { Background } from "@react-navigation/elements";
 
 const { width } = Dimensions.get("window");
 const isMobile = width < 768;
@@ -30,12 +29,8 @@ export default function OptionSidebarView({ onClose }) {
   const insets = useSafeAreaInsets();
 
   const [materias, setMaterias] = useState([]);
-  const [secciones, setSecciones] = useState([]);
   const [profesores, setProfesores] = useState([]);
 
-  //const [materiaValues, setMateriaValues] = useState([]);
-  //const [maestroValues, setMaestroValues] = useState([]);
-  //const [horarioValues, setHorarioValues] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
 
   // Estados para el modal
@@ -93,10 +88,7 @@ export default function OptionSidebarView({ onClose }) {
       const materiasGuardadas = await AsyncStorage.getItem("materiasAnadidas");
       if (materiasGuardadas) {
         setMateriasAnadidas(JSON.parse(materiasGuardadas));
-        console.log(
-          "Materias cargadas desde AsyncStorage:",
-          JSON.parse(materiasGuardadas)
-        );
+        //console.log("Materias cargadas:", JSON.parse(materiasGuardadas));
       }
     } catch (error) {
       console.error("Error al cargar materias añadidas:", error);
@@ -111,7 +103,7 @@ export default function OptionSidebarView({ onClose }) {
           ...prev,
           ...JSON.parse(savedOptions),
         }));
-        console.log("Opciones cargadas:", JSON.parse(savedOptions));
+        //console.log("Opciones cargadas:", JSON.parse(savedOptions));
       }
     } catch (error) {
       console.error("Error al cargar opciones de generación:", error);
@@ -137,7 +129,7 @@ export default function OptionSidebarView({ onClose }) {
   const saveMateriasAnadidas = async (materias) => {
     try {
       await AsyncStorage.setItem("materiasAnadidas", JSON.stringify(materias));
-      console.log("Materias guardadas en AsyncStorage:", materias);
+      //console.log("Materias guardadas en AsyncStorage:", materias);
     } catch (error) {
       console.error("Error al guardar materias añadidas:", error);
     }
@@ -172,12 +164,12 @@ export default function OptionSidebarView({ onClose }) {
       const cicloGuardado = await AsyncStorage.getItem("cicloMaterias");
       const carreraGuardada = await AsyncStorage.getItem("carreraMaterias");
 
-      console.log(
-        "Verificando contexto - Guardado:",
-        { ciclo: cicloGuardado, carrera: carreraGuardada },
-        "Actual:",
-        { ciclo: userData.calendario, carrera: userData.carrera }
-      );
+      // console.log(
+      //   "Verificando contexto - Guardado:",
+      //   { ciclo: cicloGuardado, carrera: carreraGuardada },
+      //   "Actual:",
+      //   { ciclo: userData.calendario, carrera: userData.carrera }
+      // );
 
       // Verificamos si hay discrepancia en Ciclo O en Carrera
       const cicloDiferente =
@@ -187,7 +179,7 @@ export default function OptionSidebarView({ onClose }) {
 
       if (cicloDiferente || carreraDiferente) {
         // Detectado cambio de contexto
-        console.log("¡Contexto diferente detectado!");
+        //console.log("¡Contexto diferente detectado!");
         setCicloAnterior(cicloGuardado || userData.calendario); // Fallback por si solo uno es null
         setCarreraAnterior(carreraGuardada || userData.carrera);
         setModalCambioContexto(true);
@@ -196,7 +188,7 @@ export default function OptionSidebarView({ onClose }) {
         materiasAnadidas.length > 0
       ) {
         // No hay datos guardados pero hay materias, guardar el contexto actual para evitar errores futuros
-        console.log("Guardando contexto actual de referencia");
+        //console.log("Guardando contexto actual de referencia");
         if (!cicloGuardado)
           await AsyncStorage.setItem("cicloMaterias", userData.calendario);
         if (!carreraGuardada)
@@ -280,7 +272,7 @@ export default function OptionSidebarView({ onClose }) {
           creditos: materia.creditos,
         }));
       setMaterias(materiaList);
-      console.log("Materias obtenidas:", materiaList);
+      //console.log("Materias obtenidas:", materiaList);
     } catch (error) {
       console.error("Error al obtener las materias:", error);
     } finally {
@@ -340,7 +332,7 @@ export default function OptionSidebarView({ onClose }) {
         `${API_BASE_URL}/materia/${userData.centroUniversitario}/${materia}/${userData.calendario}/secciones`
       );
       const data = await response.json();
-      setSecciones(data);
+
 
       // Extraer profesores únicos y ordenarlos alfabéticamente
       const profesoresUnicos = [
@@ -392,7 +384,7 @@ export default function OptionSidebarView({ onClose }) {
         materias.find((m) => m.value === selectedMateria)?.creditos || 0,
       profesores: profesorPreferences,
     };
-    console.log("Guardando materia:", materiaData);
+    //("Guardando materia:", materiaData);
 
     // Guardar ciclo Y carrera cuando se añade la primera materia
     if (materiasAnadidas.length === 0) {
@@ -414,7 +406,6 @@ export default function OptionSidebarView({ onClose }) {
       );
 
       if (materiaExiste) {
-        console.log("La materia ya ha sido añadida.");
         setModalErrorMessage(
           "Esta materia ya ha sido añadida. Puedes editarla desde la lista."
         );
@@ -436,7 +427,6 @@ export default function OptionSidebarView({ onClose }) {
     setSelectedMateria(null);
     setProfesores([]);
     setProfesorPreferences({});
-    setSecciones([]);
     setEditingIndex(null);
     setSearchProfesor("");
   };
@@ -1364,7 +1354,7 @@ export default function OptionSidebarView({ onClose }) {
                 const bloqueosHorarioData = mapDisabledCellsToHorarioData(
                   horariosNoDisponibles
                 );
-                console.log("Bloqueos de horario:", bloqueosHorarioData);
+                //console.log("Bloqueos de horario:", bloqueosHorarioData);
 
                 const generatedSchedules = generateSchedules(
                   materiasAnadidas,
@@ -1372,7 +1362,7 @@ export default function OptionSidebarView({ onClose }) {
                   opcionesGeneracion,
                   bloqueosHorarioData
                 );
-                console.log("Horarios generados:", generatedSchedules);
+                //console.log("Horarios generados:", generatedSchedules);
                 // 4. Navigate to view with results
                 if (generatedSchedules.length > 0) {
                   // We can't pass huge objects via URL params comfortably.
@@ -1384,7 +1374,7 @@ export default function OptionSidebarView({ onClose }) {
                   setModalOpcionesVisible(false);
                   router.push("/Tabs/GeneratedScheduleView");
                 } else {
-                  console.log("No se encontraron combinaciones posibles.");
+                  //console.log("No se encontraron combinaciones posibles.");
                   setModalErrorMessage(
                     "No se encontraron combinaciones posibles con las restricciones actuales."
                   );
@@ -1475,7 +1465,6 @@ export default function OptionSidebarView({ onClose }) {
               searchPlaceholder="Buscar..."
               value={selectedMateria}
               onChange={(item) => {
-                console.log("Materia seleccionada:", item);
                 setSelectedMateria(item.value);
                 fetchSecciones(item.value);
               }}

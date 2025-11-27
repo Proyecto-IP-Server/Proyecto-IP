@@ -8,7 +8,7 @@ import { API_BASE_URL } from '../../config/api';
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-console.log('API_BASE_URL:', API_BASE_URL);
+//console.log('API_BASE_URL:', API_BASE_URL);
 
 const PRIMARY_COLOR = "#007AFF";
 
@@ -81,7 +81,7 @@ export default function Login() {
       await AsyncStorage.setItem('centroUniversitario', centroUnivercitarioValue);
       await AsyncStorage.setItem('calendario', calendarioValue);
       await AsyncStorage.setItem('carrera', codigoCarreraValue);
-      console.log('Datos guardados correctamente');
+      //console.log('Datos guardados correctamente');
     } catch (error) {
       console.error('Error al guardar datos:', error);
     }
@@ -357,7 +357,7 @@ export default function Login() {
                 : styles.button
             }
             onPress={async () => {
-              console.log("centro: " + centroUnivercitarioValue + " calendario: " + calendarioValue + " carrera: " + codigoCarreraValue)
+              //console.log("centro: " + centroUnivercitarioValue + " calendario: " + calendarioValue + " carrera: " + codigoCarreraValue)
               
               if(!centroUnivercitarioValue || !calendarioValue || !codigoCarreraValue){
                 showError('Por favor, completa todos los campos antes de continuar.');
